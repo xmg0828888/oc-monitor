@@ -7,6 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#060a10;--card:#0d1520;--card2:#111c2e;--border:#1a2740;--txt:#c8d6e5;--dim:#5a6f88;--neon:#00e5ff;--green:#00ff88;--warn:#ffb020;--err:#ff4466;--purple:#b8a9ff;--peach:#ffb088}
+[data-theme="light"]{--bg:#f0f2f5;--card:#fff;--card2:#f5f7fa;--border:#d8dde6;--txt:#1a1a2e;--dim:#6b7b8d;--neon:#0088cc;--green:#00a856;--warn:#e69500;--err:#d63050;--purple:#7c5cbf;--peach:#d07040}
 body{font-family:'SF Mono',Menlo,'Courier New',monospace;background:var(--bg);color:var(--txt);padding:16px}
 .wrap{max-width:1200px;margin:0 auto}
 h1{font-size:1.3em;color:var(--neon);margin-bottom:4px}
@@ -61,7 +62,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 </head>
 <body>
 <div class="wrap">
-<h1>🐾 OpenClaw Mission Control <a href="/admin.html" style="font-size:.5em;color:var(--dim);text-decoration:none;margin-left:8px">⚙️ Admin</a></h1>
+<h1>🐾 OpenClaw Mission Control <a href="/admin.html" style="font-size:.5em;color:var(--dim);text-decoration:none;margin-left:8px">⚙️ Admin</a> <span id="themeBtn" onclick="toggleTheme()" style="font-size:.5em;cursor:pointer;margin-left:8px">🌙</span></h1>
 <div class="sub" id="subtitle">Loading...</div>
 <div class="stats" id="stats"></div>
 
@@ -237,6 +238,13 @@ function connectWS(){
   ws.onclose=function(){setTimeout(connectWS,3000)};
 }
 
+function toggleTheme(){
+  const d=document.documentElement,light=d.getAttribute('data-theme')==='light';
+  d.setAttribute('data-theme',light?'':'light');
+  $('#themeBtn').textContent=light?'🌙':'☀️';
+  localStorage.setItem('theme',light?'dark':'light');
+}
+(function(){const t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.getElementById('themeBtn').textContent='☀️';}})();
 load();connectWS();setInterval(load,60000);
 </script>
 </body></html>
