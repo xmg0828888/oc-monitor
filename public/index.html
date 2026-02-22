@@ -66,15 +66,15 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 <div class="stats" id="stats"></div>
 
 <div class="tabs">
-<div class="tab on" onclick="sw('nodes')">🖥 Nodes</div>
-<div class="tab" onclick="sw('matrix')">📊 Provider Matrix</div>
-<div class="tab" onclick="sw('logs')">📋 Request Logs</div>
+<div class="tab on" onclick="sw('nodes')">🖥 节点</div>
+<div class="tab" onclick="sw('matrix')">📊 供应商矩阵</div>
+<div class="tab" onclick="sw('logs')">📋 请求日志</div>
 </div>
 
 <div class="tp on" id="t-nodes"><div class="nodes" id="nodeGrid"></div></div>
-<div class="tp" id="t-matrix"><div class="mx"><div class="mx-h">Provider × Node Matrix</div><table id="matrixTable"></table></div></div>
-<div class="tp" id="t-logs"><div class="lt"><div class="lt-h">Request Logs</div>
-<div class="lf"><select id="fNode"><option value="">All Nodes</option></select><select id="fUp"><option value="">All Upstream</option></select><select id="fRes"><option value="">All Results</option><option value="1">✓ Success</option><option value="0">✗ Failed</option></select></div>
+<div class="tp" id="t-matrix"><div class="mx"><div class="mx-h">供应商 × 节点 矩阵</div><table id="matrixTable"></table></div></div>
+<div class="tp" id="t-logs"><div class="lt"><div class="lt-h">请求日志</div>
+<div class="lf"><select id="fNode"><option value="">全部节点</option></select><select id="fUp"><option value="">全部供应商</option></select><select id="fRes"><option value="">全部结果</option><option value="1">✓ 成功</option><option value="0">✗ 失败</option></select></div>
 <table id="logTable"></table></div></div>
 
 </div>
@@ -99,12 +99,12 @@ function renderStats(){
   const totalSess=ns.reduce((a,n)=>a+(n.sessions||0),0);
   const totalProvs=ns.reduce((a,n)=>a+JSON.parse(n.providers||'[]').length,0);
   $('#stats').innerHTML=[
-    ['s1',online+'/'+ns.length,'NODES ONLINE'],
-    ['s2',fmtTok(todayTok),'TODAY TOKENS'],
-    ['s3',fmtTok(weekTok),'WEEK TOKENS'],
-    ['s4',fmtTok(monthTok),'MONTH TOKENS'],
-    ['s5',totalSess,'SESSIONS'],
-    ['s6',totalProvs,'PROVIDERS']
+    ['s1',online+'/'+ns.length,'在线节点'],
+    ['s2',fmtTok(todayTok),'今日用量'],
+    ['s3',fmtTok(weekTok),'本周用量'],
+    ['s4',fmtTok(monthTok),'本月用量'],
+    ['s5',totalSess,'会话数'],
+    ['s6',totalProvs,'供应商']
   ].map(([c,n,l])=>`<div class="st ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
 }
 
@@ -118,16 +118,16 @@ function renderNodes(){
       return `<i style="height:${h}px;background:var(--${on?'neon':'err'});opacity:${on?.3+Math.random()*.5:.2}"></i>`;
     }).join('');
     return `<div class="nd${on?'':' offline'}">
-<div class="nd-h"><div><span class="dot ${on?'on':'off'}"></span><span class="nd-nm" title="Click to rename">${n.name}</span></div><span style="font-size:.7em;color:var(--${on?'dim':'err'})">${n.host}</span></div>
+<div class="nd-h"><div><span class="dot ${on?'on':'off'}"></span><span class="nd-nm" title="点击改名">${n.name}</span></div><span style="font-size:.7em;color:var(--${on?'dim':'err'})">${n.host}</span></div>
 <div class="tg"><span class="${n.role==='master'?'ms':'wk'}">${n.role}</span><span>OC ${n.oc_version}</span><span>${n.os}</span></div>
 <div class="hb">${hbBars}</div>
-<div class="sec">Providers</div>
+<div class="sec">供应商</div>
 ${provs.sort((a,b)=>b.default-a.default||(a.name>b.name?1:-1)).map(p=>`<div class="pv"><div class="pv-l">${p.default?'<span class="star">★</span>':''}${p.name} <span class="pm">${p.model}</span></div><div><span class="ok">✓</span></div></div>`).join('')}
 <div class="gs">
 ${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
 </div>
 <div class="tks"><div class="tk"><div class="tk-l">Today</div><div class="tk-v">${fmtTok(n.tok_today)}</div></div><div class="tk"><div class="tk-l">Week</div><div class="tk-v">${fmtTok(n.tok_week)}</div></div><div class="tk"><div class="tk-l">Month</div><div class="tk-v">${fmtTok(n.tok_month)}</div></div></div>
-<div class="nd-f"><span>⏱ ${fmtAge(now-n.uptime)}</span><span>📡 ${n.sessions} sessions</span><span>⚡ gw ${n.gw_ok?'✓':'✗'}</span><span>🐾 daemon ${n.daemon_ok?'✓':'✗'}</span></div>
+<div class="nd-f"><span>⏱ ${fmtAge(now-n.uptime)}</span><span>📡 ${n.sessions} 会话</span><span>⚡ gw ${n.gw_ok?'✓':'✗'}</span><span>🐾 daemon ${n.daemon_ok?'✓':'✗'}</span></div>
 </div>`;
   }).join('');
 }
@@ -151,7 +151,7 @@ function renderMatrix(){
 
 function renderLogs(){
   const reqs=DATA.requests||[];
-  let h='<thead><tr><th>时间</th><th>Node</th><th>Upstream</th><th>Model</th><th>Result</th><th>Status</th><th>输入</th><th>输出</th><th>TTFT</th><th>总耗时</th></tr></thead><tbody>';
+  let h='<thead><tr><th>时间</th><th>节点</th><th>供应商</th><th>模型</th><th>结果</th><th>状态</th><th>输入</th><th>输出</th><th>首字</th><th>总耗时</th></tr></thead><tbody>';
   reqs.forEach(r=>{
     const t=new Date(r.ts*1000).toLocaleTimeString('zh-CN');
     h+='<tr><td>'+t+'</td><td>'+(r.node_name||r.node_id)+'</td><td>'+r.upstream+'</td><td>'+r.model+'</td>';
@@ -163,7 +163,7 @@ function renderLogs(){
 }
 
 function render(){renderStats();renderNodes();renderMatrix();renderLogs();
-  $('#subtitle').textContent=DATA.nodes.length+' nodes · Updated '+new Date().toLocaleString('zh-CN');
+  $('#subtitle').textContent=DATA.nodes.length+' 个节点 · 更新于 '+new Date().toLocaleString('zh-CN');
 }
 
 async function load(){
