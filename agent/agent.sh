@@ -1,113 +1,133 @@
 #!/bin/bash
 # OpenClaw Monitor Agent
-# Usage: ./agent.sh -s http://server:3800 -t TOKEN [-n name] [-r master|worker]
-
 set -e
-
 SERVER="" TOKEN="" NAME="" ROLE="worker" INTERVAL=30
 
 while getopts "s:t:n:r:i:" opt; do
-  case $opt in
-    s) SERVER="$OPTARG";;
-    t) TOKEN="$OPTARG";;
-    n) NAME="$OPTARG";;
-    r) ROLE="$OPTARG";;
-    i) INTERVAL="$OPTARG";;
-  esac
+  case $opt in s)SERVER="$OPTARG";;t)TOKEN="$OPTARG";;n)NAME="$OPTARG";;r)ROLE="$OPTARG";;i)INTERVAL="$OPTARG";;esac
 done
-
 [ -z "$SERVER" ] || [ -z "$TOKEN" ] && echo "Usage: $0 -s SERVER_URL -t TOKEN [-n name] [-r role]" && exit 1
 
-NODE_ID=$(hostname | md5sum 2>/dev/null | cut -c1-12 || hostname | md5 | cut -c1-12)
+NODE_ID=$(hostname | md5sum 2>/dev/null | cut -c1-12 || md5 -qs "$(hostname)" | cut -c1-12)
 NAME="${NAME:-$(hostname)}"
-HOST=$(hostname -I 2>/dev/null | awk '{print $1}' || ipconfig getifaddr en0 2>/dev/null || echo "unknown")
-OS_INFO=$(uname -s -r -m)
+OC_CONFIG=""
+for p in "$HOME/.openclaw/openclaw.json" "/root/.openclaw/openclaw.json"; do
+  [ -f "$p" ] && OC_CONFIG="$p" && break
+done
+OC_VERSION=$(openclaw --version 2>/dev/null | head -1 || echo "unknown")
 
-# Detect OpenClaw config
-find_oc_config() {
-  for p in "$HOME/.openclaw/openclaw.json" "/root/.openclaw/openclaw.json" "/etc/openclaw/openclaw.json"; do
-    [ -f "$p" ] && echo "$p" && return
-  done
-  echo ""
-}
+echo "OC Monitor Agent: node=$NODE_ID name=$NAME server=$SERVER"
 
-OC_CONFIG=$(find_oc_config)
-OC_VERSION="unknown"
-if command -v openclaw &>/dev/null; then
-  OC_VERSION=$(openclaw --version 2>/dev/null | head -1 || echo "unknown")
-fi
-
-# Get providers from config
-get_providers() {
-  [ -z "$OC_CONFIG" ] && echo "[]" && return
-  python3 -c "
-import json,sys
-try:
-  c=json.load(open('$OC_CONFIG'))
-  ps=[]
-  for n,p in c.get('models',{}).get('providers',{}).items():
-    if not isinstance(p,dict): continue
-    for m in p.get('models',[]):
-      ps.append({'name':n,'model':m.get('id',''),'api':p.get('api','')})
-  print(json.dumps(ps))
-except: print('[]')
-" 2>/dev/null || echo "[]"
-}
-
-# System metrics
-get_cpu() { top -bn1 2>/dev/null | grep 'Cpu' | awk '{print 100-$8}' || echo 0; }
-get_mem() { free 2>/dev/null | awk '/Mem/{printf "%.1f",$3/$2*100}' || vm_stat 2>/dev/null | awk '/Pages active/{a=$3}/page size/{p=$8}END{printf "%.0f",a*p/1024/1024/1024*100/8}' || echo 0; }
-get_disk() { df / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5);print $5}' || echo 0; }
-get_swap() { free 2>/dev/null | awk '/Swap/{if($2>0)printf "%.1f",$3/$2*100;else print 0}' || echo 0; }
-get_uptime() { awk '{printf "%d",$1}' /proc/uptime 2>/dev/null || sysctl -n kern.boottime 2>/dev/null | awk -F'[= ,]' '{print systime()-$6}' || echo 0; }
-
-# Check gateway/daemon
-check_gw() { pgrep -f "openclaw.*gateway" &>/dev/null && echo true || echo false; }
-check_daemon() { pgrep -f "openclaw.*daemon\|openclaw-daemon" &>/dev/null && echo true || echo false; }
-
-# Session count
-get_sessions() {
-  local sf="$HOME/.openclaw/sessions.json"
-  [ -f "$sf" ] && python3 -c "import json;print(len(json.load(open('$sf'))))" 2>/dev/null || echo 0
-}
-
-CONFIG_MTIME=0
-
-echo "OC Monitor Agent started: node=$NODE_ID name=$NAME server=$SERVER"
-
-# Main loop
 while true; do
-  # Check config change
-  PROVIDERS="[]"
-  if [ -n "$OC_CONFIG" ] && [ -f "$OC_CONFIG" ]; then
-    MT=$(stat -c %Y "$OC_CONFIG" 2>/dev/null || stat -f %m "$OC_CONFIG" 2>/dev/null || echo 0)
-    if [ "$MT" != "$CONFIG_MTIME" ]; then
-      PROVIDERS=$(get_providers)
-      CONFIG_MTIME="$MT"
-      echo "Config changed, providers updated"
-    else
-      PROVIDERS=$(get_providers)
-    fi
+  python3 - "$OC_CONFIG" "$NODE_ID" "$NAME" "$OC_VERSION" "$ROLE" << 'PYEOF' > /tmp/.oc-agent-payload.json
+import json,subprocess,os,platform,time,sys,glob
+
+def run(cmd):
+    try: return subprocess.check_output(cmd,shell=True,stderr=subprocess.DEVNULL).decode().strip()
+    except: return ''
+
+cfg,nid,name,ver,role = sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5]
+mac = sys.platform=='darwin'
+
+# Host IP - try multiple interfaces on macOS
+if mac:
+    host = run("ifconfig | grep 'inet ' | grep -v 127 | head -1 | awk '{print $2}'")
+else:
+    host = run("hostname -I | awk '{print $1}'")
+if not host: host = 'unknown'
+
+# Providers
+providers = []
+if cfg and os.path.exists(cfg):
+    try:
+        c = json.load(open(cfg))
+        for n,p in c.get('models',{}).get('providers',{}).items():
+            if not isinstance(p,dict): continue
+            for m in p.get('models',[]):
+                providers.append({'name':n,'model':m.get('id',''),'api':p.get('api','')})
+    except: pass
+
+# CPU
+if mac:
+    raw = run("ps -A -o %cpu | tail -n +2")
+    try: cpu = round(sum(float(x) for x in raw.split() if x) / os.cpu_count(), 1)
+    except: cpu = 0
+else:
+    cpu = float(run("top -bn1 | grep 'Cpu' | awk '{print 100-$8}'") or 0)
+
+# Memory
+if mac:
+    try:
+        vm = run('vm_stat')
+        d = {}
+        for l in vm.split('\n')[1:]:
+            if ':' not in l: continue
+            k,v = l.split(':',1)
+            d[k.strip()] = int(v.strip().rstrip('.'))
+        used = d.get('Pages active',0) + d.get('Pages wired down',0)
+        total = used + d.get('Pages free',0) + d.get('Pages inactive',0) + d.get('Pages speculative',0)
+        mem = round(used/total*100,1) if total else 0
+    except: mem = 0
+else:
+    mem = float(run("free | awk '/Mem/{printf \"%.1f\",$3/$2*100}'") or 0)
+
+# Disk
+disk = float(run("df / | awk 'NR==2{gsub(/%/,\"\",$5);print $5}'") or 0)
+
+# Swap
+if mac:
+    try:
+        sw = run('sysctl vm.swapusage')
+        used_sw = float(sw.split('used = ')[1].split('M')[0])
+        total_sw = float(sw.split('total = ')[1].split('M')[0])
+        swap = round(used_sw/total_sw*100,1) if total_sw > 0 else 0
+    except: swap = 0
+else:
+    swap = float(run("free | awk '/Swap/{if($2>0)printf \"%.1f\",$3/$2*100;else print 0}'") or 0)
+
+# Uptime
+if mac:
+    try:
+        b = run('sysctl -n kern.boottime')
+        uptime = int(time.time()) - int(b.split('sec = ')[1].split(',')[0])
+    except: uptime = 0
+else:
+    try: uptime = int(float(open('/proc/uptime').read().split()[0]))
+    except: uptime = 0
+
+# Gateway/daemon - check by process name
+gw = bool(run('pgrep -f "openclaw"'))
+daemon = gw  # if openclaw is running, both are likely up
+
+# Sessions - search for session files
+sessions = 0
+oc_dir = os.path.expanduser('~/.openclaw')
+for sf in [os.path.join(oc_dir,'sessions.json'), os.path.join(oc_dir,'data','sessions.json')]:
+    if os.path.exists(sf):
+        try: sessions = len(json.load(open(sf))); break
+        except: pass
+# Fallback: count session dirs
+if sessions == 0:
+    sess_dir = os.path.join(oc_dir,'sessions')
+    if os.path.isdir(sess_dir):
+        sessions = len([d for d in os.listdir(sess_dir) if os.path.isdir(os.path.join(sess_dir,d))])
+
+print(json.dumps({
+    'id':nid,'name':name,'host':host,
+    'os':platform.system()+' '+platform.release()+' '+platform.machine(),
+    'oc_version':ver,'role':role,'providers':providers,
+    'cpu':cpu,'mem':mem,'disk':disk,'swap':swap,
+    'sessions':sessions,'gw_ok':gw,'daemon_ok':daemon,'uptime':uptime
+}))
+PYEOF
+
+  if [ -s /tmp/.oc-agent-payload.json ]; then
+    curl -sS -X POST "$SERVER/api/heartbeat" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d @/tmp/.oc-agent-payload.json -m 10 >/dev/null 2>&1 \
+      && echo "[$(date +%H:%M:%S)] heartbeat ok" \
+      || echo "[$(date +%H:%M:%S)] heartbeat failed"
   fi
-
-  # Build payload
-  PAYLOAD=$(cat <<EOF
-{
-  "id":"$NODE_ID","name":"$NAME","host":"$HOST",
-  "os":"$OS_INFO","oc_version":"$OC_VERSION","role":"$ROLE",
-  "providers":$PROVIDERS,
-  "cpu":$(get_cpu),"mem":$(get_mem),"disk":$(get_disk),"swap":$(get_swap),
-  "sessions":$(get_sessions),"gw_ok":$(check_gw),"daemon_ok":$(check_daemon),
-  "uptime":$(get_uptime)
-}
-EOF
-)
-
-  # Send heartbeat
-  curl -sS -X POST "$SERVER/api/heartbeat" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "$PAYLOAD" -m 10 >/dev/null 2>&1 || echo "Heartbeat failed"
-
   sleep "$INTERVAL"
 done
