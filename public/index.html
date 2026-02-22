@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenClaw Mission Control</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#060a10;--card:#0d1520;--card2:#111c2e;--border:#1a2740;--txt:#c8d6e5;--dim:#5a6f88;--neon:#00e5ff;--green:#00ff88;--warn:#ffb020;--err:#ff4466;--purple:#b8a9ff;--peach:#ffb088}
+body{font-family:'SF Mono',Menlo,'Courier New',monospace;background:var(--bg);color:var(--txt);padding:16px}
+.wrap{max-width:1200px;margin:0 auto}
+h1{font-size:1.3em;color:var(--neon);margin-bottom:4px}
+.sub{color:var(--dim);font-size:.75em;margin-bottom:20px}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+.st{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.st .n{font-size:1.5em;font-weight:700}.st .l{font-size:.7em;color:var(--dim);margin-top:2px}
+.s1 .n{color:var(--neon)}.s2 .n{color:var(--purple)}.s3 .n{color:var(--peach)}
+.s4 .n{color:var(--green)}.s5 .n{color:var(--warn)}.s6 .n{color:var(--err)}
+.tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.tab{padding:8px 20px;cursor:pointer;color:var(--dim);font-size:.85em;border-bottom:2px solid transparent}
+.tab.on{color:var(--neon);border-bottom-color:var(--neon)}
+.tp{display:none}.tp.on{display:block}
+.nodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.nd{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.nd.offline{border-color:rgba(255,68,102,.3)}
+.nd-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.nd-nm{font-size:1.05em;font-weight:600;cursor:pointer}.nd-nm:hover{color:var(--neon)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}.dot.off{background:var(--err)}
+.tg{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.tg span{font-size:.63em;padding:2px 7px;border-radius:10px;background:var(--card2);color:var(--dim);border:1px solid var(--border)}
+.tg .ms{color:var(--neon);border-color:rgba(0,229,255,.3)}
+.tg .wk{color:var(--purple);border-color:rgba(184,169,255,.3)}
+.hb{height:28px;display:flex;align-items:end;gap:1px;overflow:hidden;margin-bottom:8px}
+.hb i{width:3px;border-radius:1px}
+.sec{font-size:.72em;color:var(--dim);margin-bottom:4px}
+.pv{display:flex;justify-content:space-between;padding:3px 0;font-size:.78em}
+.pv-l{display:flex;gap:5px;align-items:center}
+.star{color:var(--warn);font-size:.7em}
+.pm{color:var(--dim);font-size:.85em}
+.ok{color:var(--green)}.er{color:var(--err)}
+.gs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}
+.g{font-size:.7em}.g-l{color:var(--dim)}.g-t{height:4px;background:var(--card2);border-radius:2px;margin:2px 0}
+.g-f{height:100%;border-radius:2px}.fg{background:var(--green)}.fb{background:var(--neon)}.fw{background:var(--warn)}.fr{background:var(--err)}
+.g-n{font-weight:600}
+.tks{display:flex;gap:10px;margin:8px 0}
+.tk{flex:1;text-align:center;background:var(--card2);border-radius:6px;padding:5px}
+.tk-l{font-size:.63em;color:var(--dim)}.tk-v{font-size:.85em;font-weight:600;color:var(--neon)}
+.nd-f{display:flex;gap:8px;font-size:.68em;color:var(--dim);flex-wrap:wrap}
+.mx{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.mx-h{font-size:.9em;font-weight:600;margin-bottom:10px;color:var(--neon)}
+table{width:100%;border-collapse:collapse;font-size:.78em}
+th{text-align:left;padding:6px 10px;color:var(--dim);border-bottom:1px solid var(--border);font-weight:500}
+td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
+.lt{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.lt-h{font-size:.9em;font-weight:600;margin-bottom:10px;color:var(--purple)}
+.lf{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.lf select{background:var(--card2);border:1px solid var(--border);color:var(--txt);padding:4px 10px;border-radius:6px;font-size:.78em;font-family:inherit}
+@media(max-width:768px){.stats{grid-template-columns:repeat(3,1fr)}.nodes{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🐾 OpenClaw Mission Control</h1>
+<div class="sub" id="subtitle">Loading...</div>
+<div class="stats" id="stats"></div>
+
+<div class="tabs">
+<div class="tab on" onclick="sw('nodes')">🖥 Nodes</div>
+<div class="tab" onclick="sw('matrix')">📊 Provider Matrix</div>
+<div class="tab" onclick="sw('logs')">📋 Request Logs</div>
+</div>
+
+<div class="tp on" id="t-nodes"><div class="nodes" id="nodeGrid"></div></div>
+<div class="tp" id="t-matrix"><div class="mx"><div class="mx-h">Provider × Node Matrix</div><table id="matrixTable"></table></div></div>
+<div class="tp" id="t-logs"><div class="lt"><div class="lt-h">Request Logs</div>
+<div class="lf"><select id="fNode"><option value="">All Nodes</option></select><select id="fUp"><option value="">All Upstream</option></select><select id="fRes"><option value="">All Results</option><option value="1">✓ Success</option><option value="0">✗ Failed</option></select></div>
+<table id="logTable"></table></div></div>
+
+</div>
+<script>
+let DATA={nodes:[],stats:{},requests:[]};
+const $=s=>document.querySelector(s);
+
+function sw(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tp').forEach(e=>e.classList.remove('on'));document.querySelector(`.tab[onclick*="${t}"]`).classList.add('on');document.getElementById('t-'+t).classList.add('on')}
+
+function fmtTok(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n}
+function fmtUp(s){if(!s)return'0s';return s>=1000?(s/1000).toFixed(1)+'s':s+'ms'}
+function fmtAge(ts){const d=Math.floor(Date.now()/1000)-ts;if(d<60)return d+'s';if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h';return Math.floor(d/86400)+'d '+Math.floor((d%86400)/3600)+'h'}
+
+function gaugeColor(v){return v>85?'fr':v>60?'fw':v>40?'fb':'fg'}
+
+function renderStats(){
+  const s=DATA.stats||{},ns=DATA.nodes||[];
+  const online=ns.filter(n=>Date.now()/1000-n.last_seen<120).length;
+  const rate=s.total?((s.ok||0)/s.total*100).toFixed(1):0;
+  $('#stats').innerHTML=[
+    ['s1',online+'/'+ns.length,'NODES ONLINE'],
+    ['s2',fmtTok(s.total||0),'TODAY REQUESTS'],
+    ['s3',fmtTok(s.input_tok||0),'INPUT TOKENS'],
+    ['s4',rate+'%','SUCCESS RATE'],
+    ['s5',fmtUp(Math.round(s.avg_ttft||0)),'AVG TTFT'],
+    ['s6',fmtUp(Math.round(s.avg_total||0)),'AVG LATENCY']
+  ].map(([c,n,l])=>`<div class="st ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function renderNodes(){
+  const now=Date.now()/1000;
+  $('#nodeGrid').innerHTML=DATA.nodes.map(n=>{
+    const on=now-n.last_seen<120;
+    const provs=JSON.parse(n.providers||'[]');
+    const hbBars=Array.from({length:50},()=>{
+      const h=on?Math.random()*20+4:0;
+      return `<i style="height:${h}px;background:var(--${on?'neon':'err'});opacity:${on?.3+Math.random()*.5:.2}"></i>`;
+    }).join('');
+    return `<div class="nd${on?'':' offline'}">
+<div class="nd-h"><div><span class="dot ${on?'on':'off'}"></span><span class="nd-nm" title="Click to rename">${n.name}</span></div><span style="font-size:.7em;color:var(--${on?'dim':'err'})">${n.host}</span></div>
+<div class="tg"><span class="${n.role==='master'?'ms':'wk'}">${n.role}</span><span>OC ${n.oc_version}</span><span>${n.os}</span></div>
+<div class="hb">${hbBars}</div>
+<div class="sec">Providers</div>
+${provs.map((p,i)=>`<div class="pv"><div class="pv-l">${i===0?'<span class="star">★</span>':''}${p.name} <span class="pm">${p.model}</span></div><div><span class="ok">✓</span></div></div>`).join('')}
+<div class="gs">
+${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
+</div>
+<div class="tks"><div class="tk"><div class="tk-l">Today</div><div class="tk-v">${fmtTok(n.tok_today)}</div></div><div class="tk"><div class="tk-l">Week</div><div class="tk-v">${fmtTok(n.tok_week)}</div></div><div class="tk"><div class="tk-l">Month</div><div class="tk-v">${fmtTok(n.tok_month)}</div></div></div>
+<div class="nd-f"><span>⏱ ${fmtAge(now-n.uptime)}</span><span>📡 ${n.sessions} sessions</span><span>⚡ gw ${n.gw_ok?'✓':'✗'}</span><span>🐾 daemon ${n.daemon_ok?'✓':'✗'}</span></div>
+</div>`;
+  }).join('');
+}
+
+
+
+function renderMatrix(){
+  const ns=DATA.nodes,allProvs=new Map();
+  ns.forEach(n=>JSON.parse(n.providers||'[]').forEach(p=>{
+    const k=p.name+' ('+p.model+')';if(!allProvs.has(k))allProvs.set(k,new Set());
+    allProvs.get(k).add(n.name);
+  }));
+  let h='<thead><tr><th>Provider</th>'+ns.map(n=>'<th>'+n.name+'</th>').join('')+'</tr></thead><tbody>';
+  for(const[prov,set]of allProvs){
+    h+='<tr><td>'+prov+'</td>';
+    ns.forEach(n=>{h+=set.has(n.name)?'<td class="ok">✓</td>':'<td style="color:var(--dim)">—</td>';});
+    h+='</tr>';
+  }
+  $('#matrixTable').innerHTML=h+'</tbody>';
+}
+
+function renderLogs(){
+  const reqs=DATA.requests||[];
+  let h='<thead><tr><th>时间</th><th>Node</th><th>Upstream</th><th>Model</th><th>Result</th><th>Status</th><th>输入</th><th>输出</th><th>TTFT</th><th>总耗时</th></tr></thead><tbody>';
+  reqs.forEach(r=>{
+    const t=new Date(r.ts*1000).toLocaleTimeString('zh-CN');
+    h+='<tr><td>'+t+'</td><td>'+(r.node_name||r.node_id)+'</td><td>'+r.upstream+'</td><td>'+r.model+'</td>';
+    h+='<td class="'+(r.success?'ok':'er')+'">'+(r.success?'✓':'✗')+'</td><td>'+r.status+'</td>';
+    h+='<td>'+fmtTok(r.input_tokens)+'</td><td>'+r.output_tokens+'</td>';
+    h+='<td style="color:var(--warn)">'+r.ttft_ms+'ms</td><td>'+fmtUp(r.total_ms)+'</td></tr>';
+  });
+  $('#logTable').innerHTML=h+'</tbody>';
+}
+
+function render(){renderStats();renderNodes();renderMatrix();renderLogs();
+  $('#subtitle').textContent=DATA.nodes.length+' nodes · Updated '+new Date().toLocaleString('zh-CN');
+}
+
+async function load(){
+  try{const r=await fetch('/api/dashboard');DATA=await r.json();render();}catch(e){console.error(e)}
+}
+
+function connectWS(){
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  const ws=new WebSocket(proto+'//'+location.host);
+  ws.onmessage=function(e){
+    const d=JSON.parse(e.data);
+    if(d.type==='heartbeat'){
+      const i=DATA.nodes.findIndex(function(n){return n.id===d.node.id});
+      if(i>=0)Object.assign(DATA.nodes[i],d.node);else DATA.nodes.push(d.node);
+      render();
+    }
+    if(d.type==='request'){DATA.requests.unshift(d.request);if(DATA.requests.length>100)DATA.requests.pop();render();}
+    if(d.type==='rename'){var n=DATA.nodes.find(function(x){return x.id===d.id});if(n)n.name=d.name;render();}
+    if(d.type==='delete'){DATA.nodes=DATA.nodes.filter(function(n){return n.id!==d.id});render();}
+  };
+  ws.onclose=function(){setTimeout(connectWS,3000)};
+}
+
+load();connectWS();setInterval(load,60000);
+</script>
+</body></html>
