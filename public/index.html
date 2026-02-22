@@ -152,8 +152,8 @@ function renderMatrix(){
 
 function renderLogs(){
   const reqs=DATA.requests||[];
-  // Populate filters
-  const nodes=[...new Set(reqs.map(r=>r.node_name||r.node_id))].sort();
+  // Populate filters from nodes (not requests)
+  const nodes=(DATA.nodes||[]).map(n=>n.name).sort();
   const ups=[...new Set(reqs.map(r=>r.upstream))].sort();
   const fN=$('#fNode'),fU=$('#fUp');
   const nv=fN.value,uv=fU.value;
