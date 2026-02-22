@@ -43,8 +43,22 @@ if cfg and os.path.exists(cfg):
     try:
         c = json.load(open(cfg))
         m = c.get('models',{})
-        # Extract default from config or -d param
+        # Auto-detect default: most used provider from recent sessions
         dp = default_prov or m.get('default','')
+        if not dp:
+            from collections import Counter
+            prov_count = Counter()
+            for sd2 in glob.glob(os.path.join(os.path.expanduser('~/.openclaw'),'agents','*','sessions')):
+                for jf2 in glob.glob(os.path.join(sd2,'*.jsonl')):
+                    if os.path.getmtime(jf2) < time.time()-7*86400: continue
+                    try:
+                        with open(jf2) as f2:
+                            for ln in f2:
+                                if '"provider"' in ln:
+                                    try: prov_count[json.loads(ln).get('message',{}).get('provider','')] += 1
+                                    except: pass
+                    except: pass
+            if prov_count: dp = prov_count.most_common(1)[0][0]
         default_name = dp.split('/')[0] if '/' in dp else dp
         for n,p in m.get('providers',{}).items():
             if not isinstance(p,dict): continue
