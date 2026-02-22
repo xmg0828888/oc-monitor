@@ -136,7 +136,7 @@ const server = http.createServer((req, res) => {
           JSON.stringify(b.providers||[]),b.cpu||0,b.mem||0,b.disk||0,b.swap||0,
           b.sessions||0,b.gw_ok?1:0,b.daemon_ok?1:0,b.uptime||0,
           b.tok_today||0,b.tok_week||0,b.tok_month||0,now);
-        broadcast({ type:'heartbeat', node: { ...b, last_seen: now } });
+        broadcast({ type:'heartbeat', node: { ...b, providers: JSON.stringify(b.providers||[]), last_seen: now } });
         return json(200, { ok: true });
       }
 
