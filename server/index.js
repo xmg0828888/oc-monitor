@@ -119,20 +119,19 @@ const server = http.createServer((req, res) => {
   // API routes
   (async () => {
     try {
-      // GET /api/dashboard - requires auth
+      // GET /api/dashboard - public (masked) or authed (full)
       if (url.pathname === '/api/dashboard' && method === 'GET') {
-        if (!auth()) return;
+        const authed = (req.headers.authorization||'').replace('Bearer ','') === AUTH_TOKEN;
         const now = Math.floor(Date.now()/1000);
         const today = now - (now % 86400);
-        const nodes = getNodes.all();
+        const nodes = getNodes.all().map(n => authed ? n : {...n, host: '***'});
         const stats = getStats.get(today);
         const reqs = getReqs.all(500);
-        return json(200, { nodes, stats, requests: reqs, token: undefined });
+        return json(200, { nodes, stats, requests: reqs, authed });
       }
 
-      // GET /api/requests - requires auth
+      // GET /api/requests - public (masked) or authed (full)
       if (url.pathname === '/api/requests' && method === 'GET') {
-        if (!auth()) return;
         const page = parseInt(url.searchParams.get('page') || '1');
         const size = Math.min(parseInt(url.searchParams.get('size') || '50'), 200);
         const offset = (page - 1) * size;

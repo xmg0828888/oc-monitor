@@ -92,15 +92,15 @@ td{padding:8px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 </style>
 </head>
 <body>
-<div class="login-mask" id="loginMask">
-<div class="login-box"><h2>🐾 Mission Control</h2><p>请输入访问令牌</p>
+<div class="login-mask" id="loginMask" style="display:none">
+<div class="login-box"><h2>🔓 解锁完整视图</h2><p>输入令牌查看 IP 等敏感信息</p>
 <input id="tokenInput" type="password" placeholder="Token" onkeydown="if(event.key==='Enter')doLogin()">
-<button onclick="doLogin()">登录</button>
+<button onclick="doLogin()">解锁</button>
 <div class="login-err" id="loginErr">令牌无效</div></div></div>
-<div class="wrap" id="mainWrap" style="display:none">
+<div class="wrap" id="mainWrap">
 <div class="hdr">
 <div class="hdr-row"><h1>🐾 OpenClaw Mission Control</h1>
-<div class="hdr-links"><a href="/admin.html">⚙️ Admin</a><span id="themeBtn" onclick="toggleTheme()">🌙</span></div></div>
+<div class="hdr-links"><a href="/admin.html">⚙️ Admin</a><span id="lockBtn" onclick="$('#loginMask').style.display='flex'" style="cursor:pointer">🔒</span><span id="themeBtn" onclick="toggleTheme()">🌙</span></div></div>
 <div class="sub" id="subtitle">Loading...</div>
 </div>
 <div class="stats" id="stats"></div>
@@ -126,11 +126,11 @@ const authHdr=()=>({headers:{'Authorization':'Bearer '+TOKEN}});
 
 function doLogin(){
   const t=$('#tokenInput').value.trim();if(!t)return;
-  fetch('/api/dashboard',{headers:{'Authorization':'Bearer '+t}}).then(r=>{
-    if(r.status===401){$('#loginErr').style.display='block';return}
+  fetch('/api/dashboard',{headers:{'Authorization':'Bearer '+t}}).then(r=>r.json()).then(d=>{
+    if(!d.authed){$('#loginErr').style.display='block';return}
     TOKEN=t;localStorage.setItem('oc-token',t);
-    $('#loginMask').style.display='none';$('#mainWrap').style.display='';
-    r.json().then(d=>{DATA=d;render();});connectWS();setInterval(load,60000);
+    $('#loginMask').style.display='none';$('#lockBtn').textContent='🔓';
+    DATA=d;render();
   });
 }
 
@@ -314,6 +314,7 @@ function toggleTheme(){
   localStorage.setItem('theme',light?'dark':'light');
 }
 (function(){const t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.getElementById('themeBtn').textContent='☀️';}})();
-if(TOKEN){fetch('/api/dashboard',authHdr()).then(r=>{if(r.status===401){$('#loginMask').style.display='';return}$('#loginMask').style.display='none';$('#mainWrap').style.display='';r.json().then(d=>{DATA=d;render();});connectWS();setInterval(load,60000);}).catch(()=>{$('#loginMask').style.display='';});}
+if(TOKEN){$('#lockBtn').textContent='🔓';}
+load();connectWS();setInterval(load,60000);
 </script>
 </body></html>
