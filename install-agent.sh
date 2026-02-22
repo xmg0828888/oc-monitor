@@ -29,7 +29,7 @@ done
 
 # Download agent
 echo "📦 Downloading agent..."
-curl -fsSL https://raw.githubusercontent.com/mango082888-bit/oc-monitor/main/agent/agent.sh -o "$AGENT"
+curl -fsSL https://raw.githubusercontent.com/xmg0828888/oc-monitor/main/agent/agent.sh -o "$AGENT"
 chmod +x "$AGENT"
 
 # Detect init system

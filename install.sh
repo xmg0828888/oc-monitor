@@ -21,7 +21,7 @@ if [ -d "$DIR" ]; then
   cd "$DIR" && git pull
 else
   echo "📦 Cloning repository..."
-  git clone https://github.com/mango082888-bit/oc-monitor.git "$DIR"
+  git clone https://github.com/xmg0828888/oc-monitor.git "$DIR"
   cd "$DIR"
 fi
 
@@ -46,4 +46,4 @@ echo "🌐 Dashboard: http://$IP:$PORT"
 echo "🔑 Auth Token: $TOKEN"
 echo ""
 echo "📡 Install agent on each node:"
-echo "  curl -fsSL https://raw.githubusercontent.com/mango082888-bit/oc-monitor/main/install-agent.sh | bash -s -- -s http://$IP:$PORT -t $TOKEN -n \"NodeName\""
+echo "  curl -fsSL https://raw.githubusercontent.com/xmg0828888/oc-monitor/main/install-agent.sh | bash -s -- -s http://$IP:$PORT -t $TOKEN -n \"NodeName\""
