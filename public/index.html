@@ -180,7 +180,7 @@ async function loadLogs(page){
 function renderLogs(){
   const reqs=DATA.requests||[];
   const nodes=(DATA.nodes||[]).map(n=>n.name).sort();
-  const ups=[...new Set(reqs.map(r=>r.upstream))].sort();
+  const ups=[...new Set((DATA.nodes||[]).flatMap(n=>JSON.parse(n.providers||'[]').map(p=>p.name)))].sort();
   const fN=$('#fNode'),fU=$('#fUp');
   const nv=fN.value,uv=fU.value;
   fN.innerHTML='<option value="">全部节点</option>'+nodes.map(n=>`<option${n===nv?' selected':''}>${n}</option>`).join('');
