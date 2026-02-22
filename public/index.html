@@ -126,8 +126,8 @@ ${provs.sort((a,b)=>b.default-a.default||(a.name>b.name?1:-1)).map(p=>`<div clas
 <div class="gs">
 ${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
 </div>
-<div class="tks"><div class="tk"><div class="tk-l">Today</div><div class="tk-v">${fmtTok(n.tok_today)}</div></div><div class="tk"><div class="tk-l">Week</div><div class="tk-v">${fmtTok(n.tok_week)}</div></div><div class="tk"><div class="tk-l">Month</div><div class="tk-v">${fmtTok(n.tok_month)}</div></div></div>
-<div class="nd-f"><span>⏱ ${fmtAge(now-n.uptime)}</span><span>📡 ${n.sessions} 会话</span><span>⚡ gw ${n.gw_ok?'✓':'✗'}</span><span>🐾 daemon ${n.daemon_ok?'✓':'✗'}</span></div>
+<div class="tks"><div class="tk"><div class="tk-l">今日</div><div class="tk-v">${fmtTok(n.tok_today)}</div></div><div class="tk"><div class="tk-l">本周</div><div class="tk-v">${fmtTok(n.tok_week)}</div></div><div class="tk"><div class="tk-l">本月</div><div class="tk-v">${fmtTok(n.tok_month)}</div></div></div>
+<div class="nd-f"><span>⏱ ${fmtAge(now-n.uptime)}</span><span>📡 ${n.sessions} 会话</span><span>⚡ 网关 ${n.gw_ok?'✓':'✗'}</span><span>🐾 守护 ${n.daemon_ok?'✓':'✗'}</span></div>
 </div>`;
   }).join('');
 }
