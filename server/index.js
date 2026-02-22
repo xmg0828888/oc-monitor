@@ -41,7 +41,11 @@ CREATE TABLE IF NOT EXISTS requests (
 );
 CREATE INDEX IF NOT EXISTS idx_req_ts ON requests(ts);
 CREATE INDEX IF NOT EXISTS idx_req_node ON requests(node_id);
-CREATE TABLE IF NOT EXISTS tokens (
+`);
+// Add cache columns if missing (migration)
+try { db.exec('ALTER TABLE requests ADD COLUMN cache_read INTEGER DEFAULT 0'); } catch(e) {}
+try { db.exec('ALTER TABLE requests ADD COLUMN cache_write INTEGER DEFAULT 0'); } catch(e) {}
+db.exec(`CREATE TABLE IF NOT EXISTS tokens (
   id TEXT PRIMARY KEY DEFAULT 'global',
   token TEXT UNIQUE
 );
@@ -59,7 +63,7 @@ const upsertNode = db.prepare(`INSERT INTO nodes(id,name,host,os,oc_version,role
   swap=excluded.swap,sessions=excluded.sessions,gw_ok=excluded.gw_ok,daemon_ok=excluded.daemon_ok,
   uptime=excluded.uptime,tok_today=excluded.tok_today,tok_week=excluded.tok_week,tok_month=excluded.tok_month,
   last_seen=excluded.last_seen`);
-const insertReq = db.prepare(`INSERT INTO requests(node_id,upstream,model,status,input_tokens,output_tokens,ttft_ms,total_ms,success,ts) VALUES(?,?,?,?,?,?,?,?,?,?)`);
+const insertReq = db.prepare(`INSERT INTO requests(node_id,upstream,model,status,input_tokens,output_tokens,cache_read,cache_write,ttft_ms,total_ms,success,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`);
 const getNodes = db.prepare("SELECT * FROM nodes ORDER BY role='master' DESC, name");
 const getReqs = db.prepare("SELECT r.*,n.name as node_name FROM requests r LEFT JOIN nodes n ON r.node_id=n.id ORDER BY r.ts DESC LIMIT ?");
 const getReqsPage = db.prepare("SELECT r.*,n.name as node_name FROM requests r LEFT JOIN nodes n ON r.node_id=n.id ORDER BY r.ts DESC LIMIT ? OFFSET ?");
@@ -161,7 +165,8 @@ const server = http.createServer((req, res) => {
         const items = Array.isArray(b) ? b : [b];
         for (const r of items) {
           insertReq.run(r.node_id,r.upstream,r.model,r.status||200,
-            r.input_tokens||0,r.output_tokens||0,r.ttft_ms||0,r.total_ms||0,
+            r.input_tokens||0,r.output_tokens||0,r.cache_read||0,r.cache_write||0,
+            r.ttft_ms||0,r.total_ms||0,
             r.success!==false?1:0, r.ts||now);
         }
         if (items.length <= 5) items.forEach(r => broadcast({ type:'request', request: r }));

@@ -228,13 +228,13 @@ function renderLogs(){
     if(fR!==''&&String(r.success?1:0)!==fR)return false;
     return true;
   });
-  let h='<thead><tr><th>时间</th><th>节点</th><th>供应商</th><th>模型</th><th>结果</th><th>状态</th><th>输入</th><th>输出</th><th>首字</th><th>总耗时</th></tr></thead><tbody>';
+  let h='<thead><tr><th>时间</th><th>节点</th><th>供应商</th><th>模型</th><th>结果</th><th>输入</th><th>输出</th><th>缓存读</th><th>缓存写</th></tr></thead><tbody>';
   filtered.forEach(r=>{
     const t=new Date(r.ts*1000).toLocaleTimeString('zh-CN');
     h+='<tr><td>'+t+'</td><td>'+(r.node_name||r.node_id)+'</td><td>'+r.upstream+'</td><td>'+r.model+'</td>';
-    h+='<td class="'+(r.success?'ok':'er')+'">'+(r.success?'✓':'✗')+'</td><td>'+r.status+'</td>';
-    h+='<td>'+fmtTok(r.input_tokens)+'</td><td>'+r.output_tokens+'</td>';
-    h+='<td style="color:var(--warn)">'+r.ttft_ms+'ms</td><td>'+fmtUp(r.total_ms)+'</td></tr>';
+    h+='<td class="'+(r.success?'ok':'er')+'">'+(r.success?'✓':'✗')+'</td>';
+    h+='<td>'+fmtTok(r.input_tokens)+'</td><td>'+fmtTok(r.output_tokens)+'</td>';
+    h+='<td style="color:var(--purple)">'+fmtTok(r.cache_read||0)+'</td><td style="color:var(--peach)">'+fmtTok(r.cache_write||0)+'</td></tr>';
   });
   $('#logTable').innerHTML=h+'</tbody>';
   // pager

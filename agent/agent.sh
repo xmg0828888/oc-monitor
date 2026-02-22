@@ -305,6 +305,7 @@ for sd in glob.glob(os.path.join(oc_dir,'agents','*','sessions')):
                         reqs.append({'node_id':nid,'upstream':m.get('provider',''),
                             'model':m.get('model',''),'status':200,
                             'input_tokens':u.get('input',0),'output_tokens':u.get('output',0),
+                            'cache_read':u.get('cacheRead',0),'cache_write':u.get('cacheWrite',0),
                             'ttft_ms':0,'total_ms':0,'success':True,
                             'ts':ts_val})
                     except: pass
