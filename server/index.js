@@ -119,8 +119,9 @@ const server = http.createServer((req, res) => {
   // API routes
   (async () => {
     try {
-      // GET /api/dashboard - public overview
+      // GET /api/dashboard - requires auth
       if (url.pathname === '/api/dashboard' && method === 'GET') {
+        if (!auth()) return;
         const now = Math.floor(Date.now()/1000);
         const today = now - (now % 86400);
         const nodes = getNodes.all();
@@ -129,8 +130,9 @@ const server = http.createServer((req, res) => {
         return json(200, { nodes, stats, requests: reqs, token: undefined });
       }
 
-      // GET /api/requests?page=1&size=50
+      // GET /api/requests - requires auth
       if (url.pathname === '/api/requests' && method === 'GET') {
+        if (!auth()) return;
         const page = parseInt(url.searchParams.get('page') || '1');
         const size = Math.min(parseInt(url.searchParams.get('size') || '50'), 200);
         const offset = (page - 1) * size;

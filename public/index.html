@@ -81,10 +81,23 @@ td{padding:8px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 .pcard-models{margin-top:2px}
 .pcard-ms{color:var(--dim);font-size:.75em}
 @media(max-width:768px){.stats{grid-template-columns:repeat(3,1fr)}.nodes{grid-template-columns:1fr}.provs{grid-template-columns:1fr}.hdr h1{font-size:1.4em}}
+.login-mask{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;text-align:center;max-width:360px;width:90%}
+.login-box h2{font-size:1.4em;font-weight:800;background:linear-gradient(135deg,var(--neon),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.login-box p{color:var(--dim);font-size:.82em;margin-bottom:20px}
+.login-box input{width:100%;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-size:.9em;font-family:inherit;outline:none}
+.login-box input:focus{border-color:var(--neon)}
+.login-box button{width:100%;margin-top:12px;padding:10px;background:linear-gradient(135deg,var(--neon),var(--purple));border:none;border-radius:8px;color:#fff;font-weight:600;font-size:.9em;cursor:pointer}
+.login-err{color:var(--err);font-size:.78em;margin-top:8px;display:none}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="login-mask" id="loginMask">
+<div class="login-box"><h2>🐾 Mission Control</h2><p>请输入访问令牌</p>
+<input id="tokenInput" type="password" placeholder="Token" onkeydown="if(event.key==='Enter')doLogin()">
+<button onclick="doLogin()">登录</button>
+<div class="login-err" id="loginErr">令牌无效</div></div></div>
+<div class="wrap" id="mainWrap" style="display:none">
 <div class="hdr">
 <div class="hdr-row"><h1>🐾 OpenClaw Mission Control</h1>
 <div class="hdr-links"><a href="/admin.html">⚙️ Admin</a><span id="themeBtn" onclick="toggleTheme()">🌙</span></div></div>
@@ -108,6 +121,18 @@ td{padding:8px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 <script>
 let DATA={nodes:[],stats:{},requests:[]};
 const $=s=>document.querySelector(s);
+let TOKEN=localStorage.getItem('oc-token')||'';
+const authHdr=()=>({headers:{'Authorization':'Bearer '+TOKEN}});
+
+function doLogin(){
+  const t=$('#tokenInput').value.trim();if(!t)return;
+  fetch('/api/dashboard',{headers:{'Authorization':'Bearer '+t}}).then(r=>{
+    if(r.status===401){$('#loginErr').style.display='block';return}
+    TOKEN=t;localStorage.setItem('oc-token',t);
+    $('#loginMask').style.display='none';$('#mainWrap').style.display='';
+    r.json().then(d=>{DATA=d;render();});connectWS();setInterval(load,60000);
+  });
+}
 
 function sw(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tp').forEach(e=>e.classList.remove('on'));document.querySelector(`.tab[onclick*="${t}"]`).classList.add('on');document.getElementById('t-'+t).classList.add('on');if(t==='logs')loadLogs(logPage)}
 
@@ -181,7 +206,7 @@ let logPage=1,logPages=1,logTotal=0;
 async function loadLogs(page){
   page=page||1;
   try{
-    const r=await fetch('/api/requests?page='+page+'&size=50');
+    const r=await fetch('/api/requests?page='+page+'&size=50',authHdr());
     const d=await r.json();
     DATA.requests=d.requests||[];logPage=d.page;logPages=d.pages;logTotal=d.total;
   }catch(e){console.error(e)}
@@ -261,7 +286,7 @@ function render(){renderStats();renderNodes();renderMatrix();renderLogs();
 }
 
 async function load(){
-  try{const r=await fetch('/api/dashboard');DATA=await r.json();render();}catch(e){console.error(e)}
+  try{const r=await fetch('/api/dashboard',authHdr());if(r.status===401)return;DATA=await r.json();render();}catch(e){console.error(e)}
 }
 
 function connectWS(){
@@ -289,6 +314,6 @@ function toggleTheme(){
   localStorage.setItem('theme',light?'dark':'light');
 }
 (function(){const t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.getElementById('themeBtn').textContent='☀️';}})();
-load();connectWS();setInterval(load,60000);
+if(TOKEN){fetch('/api/dashboard',authHdr()).then(r=>{if(r.status===401){$('#loginMask').style.display='';return}$('#loginMask').style.display='none';$('#mainWrap').style.display='';r.json().then(d=>{DATA=d;render();});connectWS();setInterval(load,60000);}).catch(()=>{$('#loginMask').style.display='';});}
 </script>
 </body></html>
