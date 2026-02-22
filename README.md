@@ -1,45 +1,100 @@
-# OpenClaw Monitor
+# 🐾 OC Monitor — OpenClaw Mission Control
 
-Multi-node monitoring dashboard for OpenClaw instances.
+Real-time monitoring dashboard for [OpenClaw](https://github.com/openclaw/openclaw) multi-node deployments.
 
-## Architecture
+![Dashboard](https://img.shields.io/badge/status-active-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-- **Server**: Node.js + SQLite + WebSocket (central dashboard)
-- **Agent**: Bash script on each OpenClaw machine, reports heartbeat + metrics
+## ✨ Features
 
-## Quick Start
+- **Real-time metrics** — CPU / Memory / Disk / Swap with live jitter animation (10s refresh)
+- **Provider health checks** — Auto-detect all configured AI providers, latency monitoring
+- **Default model detection** — Auto-identifies most-used provider per node (green dot indicator)
+- **Request logging** — Track API calls across all nodes with filtering by node / provider / result
+- **Multi-node support** — Lightweight bash+python agent, works on macOS & Linux
+- **Dark / Light theme** — Toggle with localStorage persistence
+- **WebSocket push** — Instant updates, no polling
+- **Admin panel** — Node management, token display, one-click agent install command generator
+- **Docker deployment** — Single container, SQLite storage
 
-### Server (Docker)
+## 🚀 Quick Start
+
+### 1. Deploy Server (Docker)
+
 ```bash
-docker run -d --name oc-monitor -p 3800:3800 -v oc-monitor-data:/app/data ghcr.io/mango082888-bit/oc-monitor
-# Get auth token
-docker logs oc-monitor 2>&1 | grep "Auth token"
+curl -fsSL https://raw.githubusercontent.com/mango082888-bit/oc-monitor/main/install.sh | bash
 ```
 
-### Agent
+This will:
+- Pull the repo and build the Docker image
+- Generate a random auth token
+- Start the container on port **3800**
+- Print the dashboard URL and token
+
+### 2. Install Agent on Each Node
+
+After server is running, install the agent on each OpenClaw node:
+
 ```bash
-curl -sL https://raw.githubusercontent.com/mango082888-bit/oc-monitor/main/agent/agent.sh -o agent.sh
-chmod +x agent.sh
-./agent.sh -s http://YOUR_SERVER:3800 -t YOUR_TOKEN -n "My Node" -r master
+curl -fsSL https://raw.githubusercontent.com/mango082888-bit/oc-monitor/main/install-agent.sh | bash -s -- \
+  -s http://YOUR_SERVER_IP:3800 \
+  -t YOUR_AUTH_TOKEN \
+  -n "Node Name"
 ```
 
-## Features
+The agent auto-detects:
+- OpenClaw config, providers, and models
+- System metrics (CPU, memory, disk, swap)
+- Gateway & daemon status
+- Session count and token usage
+- Default/most-used provider
 
-- Real-time node status (CPU/mem/disk/swap)
-- Provider health matrix across all nodes
-- API request logging with TTFT/latency tracking
-- Auto-detect OpenClaw config changes
-- WebSocket live updates
-- Dark theme UI
+### 3. Open Dashboard
 
-## API
+Visit `http://YOUR_SERVER_IP:3800` in your browser.
 
-| Endpoint | Method | Auth | Description |
-|---|---|---|---|
-| `/api/dashboard` | GET | No | Full dashboard data |
-| `/api/heartbeat` | POST | Yes | Agent heartbeat report |
-| `/api/request` | POST | Yes | Log API request |
-| `/api/node/rename` | POST | Yes | Rename a node |
-| `/api/node/:id` | DELETE | Yes | Remove a node |
+## 📐 Architecture
 
-Auth: `Authorization: Bearer <token>`
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Node Agent  │     │  Node Agent  │     │  Node Agent  │
+│  (bash+py)   │     │  (bash+py)   │     │  (bash+py)   │
+└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
+       │ HTTP POST          │                     │
+       └────────────────────┼─────────────────────┘
+                            ▼
+                   ┌─────────────────┐
+                   │  OC Monitor     │
+                   │  Server         │
+                   │  (Node.js+SQLite│
+                   │   +WebSocket)   │
+                   └────────┬────────┘
+                            │ WS push
+                            ▼
+                   ┌─────────────────┐
+                   │  Browser        │
+                   │  Dashboard      │
+                   └─────────────────┘
+```
+
+## 🔧 Configuration
+
+| Env Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3800` | Server listen port |
+| `AUTH_TOKEN` | (required) | Bearer token for API auth |
+
+## 📋 API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/dashboard` | Full dashboard data |
+| POST | `/api/heartbeat` | Agent heartbeat report |
+| POST | `/api/request` | API request log (single or batch) |
+| POST | `/api/rename` | Rename a node |
+| DELETE | `/api/node/:id` | Remove a node |
+
+All POST/DELETE endpoints require `Authorization: Bearer <token>` header.
+
+## License
+
+MIT
