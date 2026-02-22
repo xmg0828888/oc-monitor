@@ -1,7 +1,7 @@
 #!/bin/bash
 # OpenClaw Monitor Agent
 set -e
-SERVER="" TOKEN="" NAME="" ROLE="worker" INTERVAL=30 DEFAULT_PROV=""
+SERVER="" TOKEN="" NAME="" ROLE="worker" INTERVAL=10 DEFAULT_PROV=""
 
 while getopts "s:t:n:r:i:d:" opt; do
   case $opt in s)SERVER="$OPTARG";;t)TOKEN="$OPTARG";;n)NAME="$OPTARG";;r)ROLE="$OPTARG";;i)INTERVAL="$OPTARG";;d)DEFAULT_PROV="$OPTARG";;esac
@@ -18,8 +18,11 @@ OC_VERSION=$(openclaw --version 2>/dev/null | head -1 || echo "unknown")
 
 echo "OC Monitor Agent: node=$NODE_ID name=$NAME server=$SERVER"
 
+TICK=0
 while true; do
-  python3 - "$OC_CONFIG" "$NODE_ID" "$NAME" "$OC_VERSION" "$ROLE" "$DEFAULT_PROV" << 'PYEOF' > /tmp/.oc-agent-payload.json
+  if [ $((TICK % 6)) -eq 0 ]; then
+    # Full run: collect everything
+    python3 - "$OC_CONFIG" "$NODE_ID" "$NAME" "$OC_VERSION" "$ROLE" "$DEFAULT_PROV" << 'PYEOF' > /tmp/.oc-agent-payload.json
 import json,subprocess,os,platform,time,sys,glob
 
 def run(cmd):
@@ -28,6 +31,7 @@ def run(cmd):
 
 cfg,nid,name,ver,role = sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5]
 default_prov = sys.argv[6] if len(sys.argv)>6 else ''
+full_run = sys.argv[7]=='1' if len(sys.argv)>7 else True
 mac = sys.platform=='darwin'
 
 # Host IP - try multiple interfaces on macOS
@@ -215,6 +219,44 @@ print(json.dumps({
     'tok_today':tok_today,'tok_week':tok_week,'tok_month':tok_month
 }))
 PYEOF
+  else
+    # Light run: only update metrics in cached payload
+    python3 -c "
+import json,subprocess,os,platform
+def run(cmd):
+    try: return subprocess.check_output(cmd,shell=True,stderr=subprocess.DEVNULL).decode().strip()
+    except: return ''
+mac=platform.system()=='Darwin'
+if mac:
+    raw=run('ps -A -o %cpu | tail -n +2')
+    try: cpu=round(sum(float(x) for x in raw.split() if x)/os.cpu_count(),1)
+    except: cpu=0
+else:
+    cpu=float(run(\"top -bn1 | grep 'Cpu' | awk '{print 100-\$8}'\") or 0)
+ds=run('df -h / | tail -1').split()
+disk=int(ds[4].replace('%','')) if len(ds)>4 else 0
+if mac:
+    try:
+        vm=run('vm_stat');d={}
+        for l in vm.split(chr(10))[1:]:
+            if ':' in l: k,v=l.split(':',1);d[k.strip()]=int(v.strip().rstrip('.'))
+        ps=16384;used=(d.get('Pages active',0)+d.get('Pages wired down',0))*ps;total=int(run('sysctl -n hw.memsize'))
+        mem=round(used/total*100,1)
+    except: mem=0
+    si=run('sysctl vm.swapusage');swap=0
+    if si:
+        import re;u=re.search(r'used\s*=\s*([\d.]+)M',si);t=re.search(r'total\s*=\s*([\d.]+)M',si)
+        if u and t and float(t.group(1))>0: swap=round(float(u.group(1))/float(t.group(1))*100,1)
+else:
+    mi=run('free -b | grep Mem').split();mem=round(int(mi[2])/int(mi[1])*100,1) if len(mi)>2 else 0
+    si=run('free -b | grep Swap').split();swap=round(int(si[2])/int(si[1])*100,1) if len(si)>2 and int(si[1])>0 else 0
+try:
+    p=json.load(open('/tmp/.oc-agent-payload.json'))
+    p['cpu']=cpu;p['mem']=mem;p['disk']=disk;p['swap']=swap
+    json.dump(p,open('/tmp/.oc-agent-payload.json','w'))
+except: pass
+" 2>/dev/null
+  fi
 
   if [ -s /tmp/.oc-agent-payload.json ]; then
     curl -sS -X POST "$SERVER/api/heartbeat" \
@@ -225,7 +267,8 @@ PYEOF
       || echo "[$(date +%H:%M:%S)] heartbeat failed"
   fi
 
-  # Report new API requests from session jsonl files
+  # Report new API requests only on full runs
+  if [ $((TICK % 6)) -eq 0 ]; then
   python3 - "$OC_CONFIG" "$NODE_ID" "$SERVER" "$TOKEN" << 'REQEOF' 2>/dev/null
 import json,os,sys,glob,time,urllib.request,urllib.error
 cfg,nid,server,token = sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4]
@@ -280,6 +323,8 @@ if reqs:
 json.dump(state,open(state_f,'w'))
 if reqs: print(f'[{time.strftime("%H:%M:%S")}] reported {len(reqs)} requests')
 REQEOF
+  fi
 
+  TICK=$((TICK + 1))
   sleep "$INTERVAL"
 done
