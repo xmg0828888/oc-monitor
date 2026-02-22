@@ -122,7 +122,7 @@ function renderNodes(){
 <div class="tg"><span class="${n.role==='master'?'ms':'wk'}">${n.role}</span><span>OC ${n.oc_version}</span><span>${n.os}</span></div>
 <div class="hb">${hbBars}</div>
 <div class="sec">供应商</div>
-${provs.sort((a,b)=>b.default-a.default||(a.name>b.name?1:-1)).map(p=>`<div class="pv"><div class="pv-l">${p.default?'<span class="pv-default">★ </span>':''}<span${p.default?' class="pv-default"':''}>${p.name}</span> <span class="pm">${p.model}</span></div><div>${p.status==='ok'?'<span class="ok">✓</span> <span class="pm">'+p.ms+'ms</span>':'<span class="er">✗</span> <span class="pm">'+(p.err||'离线')+'</span>'}</div></div>`).join('')}
+${provs.sort((a,b)=>b.default-a.default||(a.name>b.name?1:-1)).map(p=>`<div class="pv"><div class="pv-l">${p.default?'<span class="dot on" style="width:6px;height:6px"></span>':''}<span${p.default?' class="pv-default"':''}>${p.name}</span> <span class="pm">${p.model}</span></div><div>${p.status==='ok'?'<span class="ok">✓</span> <span class="pm">'+p.ms+'ms</span>':'<span class="er">✗</span> <span class="pm">'+(p.err||'离线')+'</span>'}</div></div>`).join('')}
 <div class="gs">
 ${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
 </div>
