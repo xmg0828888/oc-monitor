@@ -65,9 +65,9 @@ if cfg and os.path.exists(cfg):
             base = p.get('baseUrl','')
             key = p.get('apiKey','')
             api_type = p.get('api','')
-            for mod in p.get('models',[]):
-                providers.append({'name':n,'model':mod.get('id',''),'api':api_type,'default':n==default_name,
-                                  '_base':base,'_key':key})
+            models = [mod.get('id','') for mod in p.get('models',[])]
+            providers.append({'name':n,'model':' | '.join(models),'_test_model':models[0] if models else '',
+                              'api':api_type,'default':n==default_name,'_base':base,'_key':key})
         providers.sort(key=lambda x: (not x.get('default',False), x['name']))
     except: pass
 
@@ -92,11 +92,11 @@ def check_provider(p):
         t0 = time.time()
         if 'anthropic' in api:
             url = base.rstrip('/')+'/v1/messages'
-            data = json.dumps({"model":p['model'],"max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode()
+            data = json.dumps({"model":p.get('_test_model',p['model']),"max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode()
             req = urllib.request.Request(url,data,{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'})
         else:
             url = base.rstrip('/')+'/chat/completions'
-            data = json.dumps({"model":p['model'],"max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode()
+            data = json.dumps({"model":p.get('_test_model',p['model']),"max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode()
             req = urllib.request.Request(url,data,{'Content-Type':'application/json','Authorization':'Bearer '+key})
         resp = _urlopen(req,timeout=10)
         ms = int((time.time()-t0)*1000)
@@ -116,6 +116,7 @@ for p in providers:
     p['ms'] = r['ms']
     p['err'] = r['err']
     del p['_base'], p['_key']
+    p.pop('_test_model',None)
 
 # CPU
 if mac:
