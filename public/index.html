@@ -70,7 +70,8 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 .pcard-row{display:flex;justify-content:space-between;padding:4px 0;font-size:.78em;border-bottom:1px solid rgba(26,39,64,.3)}
 .pcard-row:last-child{border-bottom:none}
 .pcard-node{color:var(--dim)}
-.pcard-model{color:var(--purple);font-size:.72em}
+.pcard-model{color:var(--purple);font-size:.68em;line-height:1.4}
+.pcard-models{margin-top:2px}
 .pcard-ms{color:var(--dim);font-size:.75em}
 @media(max-width:768px){.stats{grid-template-columns:repeat(3,1fr)}.nodes{grid-template-columns:1fr}.provs{grid-template-columns:1fr}}
 </style>
@@ -160,7 +161,7 @@ function renderMatrix(){
     const ok=p.nodes.filter(n=>n.status==='ok').length;
     return `<div class="pcard">
 <div class="pcard-h"><span class="pcard-nm">${p.name}</span><span class="pcard-cnt">${ok}/${p.nodes.length} 在线</span></div>
-${p.nodes.sort((a,b)=>b.def-a.def).map(n=>`<div class="pcard-row"><div><span${n.def?' style="color:var(--warn)"':''}>${n.node}</span> <span class="pcard-model">${n.model.split(' | ').join(', ')}</span></div><div>${n.status==='ok'?'<span class="ok">✓</span> <span class="pcard-ms">'+n.ms+'ms</span>':'<span class="er">✗</span> <span class="pcard-ms">'+(n.err||'离线')+'</span>'}</div></div>`).join('')}
+${p.nodes.sort((a,b)=>b.def-a.def).map(n=>`<div class="pcard-row"><div><span${n.def?' style="color:var(--warn)"':''}>${n.node}</span><div class="pcard-models">${n.model.split(' | ').map(m=>'<div class="pcard-model">'+m.replace(/claude-/g,'c-').replace(/-2025\d{4}/g,'')+'</div>').join('')}</div></div><div>${n.status==='ok'?'<span class="ok">✓</span> <span class="pcard-ms">'+n.ms+'ms</span>':'<span class="er">✗</span> <span class="pcard-ms">'+(n.err||'离线')+'</span>'}</div></div>`).join('')}
 </div>`;
   }).join('');
 }
