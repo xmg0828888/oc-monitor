@@ -118,12 +118,43 @@ if sessions == 0:
     if os.path.isdir(sess_dir):
         sessions = len([d for d in os.listdir(sess_dir) if os.path.isdir(os.path.join(sess_dir,d))])
 
+# Token usage from session jsonl files
+tok_today=tok_week=tok_month=0
+now_ts = time.time()
+day_ago = now_ts - 86400
+week_ago = now_ts - 7*86400
+month_ago = now_ts - 30*86400
+sess_dirs = glob.glob(os.path.join(oc_dir,'agents','*','sessions'))
+for sd in sess_dirs:
+    for jf in glob.glob(os.path.join(sd,'*.jsonl')):
+        try:
+            mtime = os.path.getmtime(jf)
+            if mtime < month_ago: continue
+            with open(jf) as f:
+                for line in f:
+                    if '"usage"' not in line: continue
+                    try:
+                        d = json.loads(line)
+                        u = d.get('message',{}).get('usage',{})
+                        if not u: continue
+                        ts = d.get('timestamp',0)
+                        if isinstance(ts,str):
+                            from datetime import datetime
+                            ts = datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp()
+                        total = u.get('input',0) + u.get('output',0) + u.get('cacheRead',0) + u.get('cacheWrite',0)
+                        if ts > day_ago: tok_today += total
+                        if ts > week_ago: tok_week += total
+                        if ts > month_ago: tok_month += total
+                    except: pass
+        except: pass
+
 print(json.dumps({
     'id':nid,'name':name,'host':host,
     'os':platform.system()+' '+platform.release()+' '+platform.machine(),
     'oc_version':ver,'role':role,'providers':providers,
     'cpu':cpu,'mem':mem,'disk':disk,'swap':swap,
-    'sessions':sessions,'gw_ok':gw,'daemon_ok':daemon,'uptime':uptime
+    'sessions':sessions,'gw_ok':gw,'daemon_ok':daemon,'uptime':uptime,
+    'tok_today':tok_today,'tok_week':tok_week,'tok_month':tok_month
 }))
 PYEOF
 
