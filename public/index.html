@@ -118,7 +118,7 @@ function renderNodes(){
 <div class="tg"><span class="${n.role==='master'?'ms':'wk'}">${n.role}</span><span>OC ${n.oc_version}</span><span>${n.os}</span></div>
 <div class="hb">${hbBars}</div>
 <div class="sec">Providers</div>
-${provs.map((p,i)=>`<div class="pv"><div class="pv-l">${i===0?'<span class="star">★</span>':''}${p.name} <span class="pm">${p.model}</span></div><div><span class="ok">✓</span></div></div>`).join('')}
+${provs.sort((a,b)=>b.default-a.default||(a.name>b.name?1:-1)).map(p=>`<div class="pv"><div class="pv-l">${p.default?'<span class="star">★</span>':''}${p.name} <span class="pm">${p.model}</span></div><div><span class="ok">✓</span></div></div>`).join('')}
 <div class="gs">
 ${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
 </div>

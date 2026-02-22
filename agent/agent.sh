@@ -1,10 +1,10 @@
 #!/bin/bash
 # OpenClaw Monitor Agent
 set -e
-SERVER="" TOKEN="" NAME="" ROLE="worker" INTERVAL=30
+SERVER="" TOKEN="" NAME="" ROLE="worker" INTERVAL=30 DEFAULT_PROV=""
 
-while getopts "s:t:n:r:i:" opt; do
-  case $opt in s)SERVER="$OPTARG";;t)TOKEN="$OPTARG";;n)NAME="$OPTARG";;r)ROLE="$OPTARG";;i)INTERVAL="$OPTARG";;esac
+while getopts "s:t:n:r:i:d:" opt; do
+  case $opt in s)SERVER="$OPTARG";;t)TOKEN="$OPTARG";;n)NAME="$OPTARG";;r)ROLE="$OPTARG";;i)INTERVAL="$OPTARG";;d)DEFAULT_PROV="$OPTARG";;esac
 done
 [ -z "$SERVER" ] || [ -z "$TOKEN" ] && echo "Usage: $0 -s SERVER_URL -t TOKEN [-n name] [-r role]" && exit 1
 
@@ -19,7 +19,7 @@ OC_VERSION=$(openclaw --version 2>/dev/null | head -1 || echo "unknown")
 echo "OC Monitor Agent: node=$NODE_ID name=$NAME server=$SERVER"
 
 while true; do
-  python3 - "$OC_CONFIG" "$NODE_ID" "$NAME" "$OC_VERSION" "$ROLE" << 'PYEOF' > /tmp/.oc-agent-payload.json
+  python3 - "$OC_CONFIG" "$NODE_ID" "$NAME" "$OC_VERSION" "$ROLE" "$DEFAULT_PROV" << 'PYEOF' > /tmp/.oc-agent-payload.json
 import json,subprocess,os,platform,time,sys,glob
 
 def run(cmd):
@@ -27,6 +27,7 @@ def run(cmd):
     except: return ''
 
 cfg,nid,name,ver,role = sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5]
+default_prov = sys.argv[6] if len(sys.argv)>6 else ''
 mac = sys.platform=='darwin'
 
 # Host IP - try multiple interfaces on macOS
@@ -41,10 +42,15 @@ providers = []
 if cfg and os.path.exists(cfg):
     try:
         c = json.load(open(cfg))
-        for n,p in c.get('models',{}).get('providers',{}).items():
+        m = c.get('models',{})
+        # Extract default from config or -d param
+        dp = default_prov or m.get('default','')
+        default_name = dp.split('/')[0] if '/' in dp else dp
+        for n,p in m.get('providers',{}).items():
             if not isinstance(p,dict): continue
-            for m in p.get('models',[]):
-                providers.append({'name':n,'model':m.get('id',''),'api':p.get('api','')})
+            for mod in p.get('models',[]):
+                providers.append({'name':n,'model':mod.get('id',''),'api':p.get('api',''),'default':n==default_name})
+        providers.sort(key=lambda x: (not x.get('default',False), x['name']))
     except: pass
 
 # CPU
