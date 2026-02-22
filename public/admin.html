@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OC Monitor Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#060a10;--card:#0d1520;--border:#1a2740;--txt:#c8d6e5;--dim:#5a6f88;--neon:#00e5ff;--green:#00ff88;--err:#ff4466;--purple:#b8a9ff}
+body{font-family:'SF Mono',Menlo,monospace;background:var(--bg);color:var(--txt);padding:20px}
+.wrap{max-width:800px;margin:0 auto}
+h1{font-size:1.3em;color:var(--neon);margin-bottom:4px}
+.sub{color:var(--dim);font-size:.75em;margin-bottom:20px}
+.back{color:var(--neon);text-decoration:none;font-size:.8em}
+.section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+.section h2{font-size:.9em;color:var(--neon);margin-bottom:12px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85em}
+.row:last-child{border:none}
+.row .name{font-weight:600}
+.row .host{color:var(--dim);font-size:.8em}
+.row .actions{display:flex;gap:6px}
+btn,button,.btn{background:var(--border);color:var(--txt);border:1px solid var(--border);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.78em;font-family:inherit}
+.btn:hover{border-color:var(--neon)}.btn.danger{color:var(--err)}.btn.danger:hover{border-color:var(--err)}
+input[type=text],input[type=password]{background:#111c2e;border:1px solid var(--border);color:var(--txt);padding:6px 10px;border-radius:6px;font-size:.82em;font-family:inherit;width:100%}
+.token-box{display:flex;gap:8px;align-items:center}
+.token-box input{flex:1}
+.copy-box{background:#111c2e;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:.75em;color:var(--dim);word-break:break-all;position:relative;cursor:pointer}
+.copy-box:hover{border-color:var(--neon)}
+.copy-box::after{content:'点击复制';position:absolute;right:8px;top:8px;font-size:.7em;color:var(--neon)}
+.toast{position:fixed;top:20px;right:20px;background:var(--green);color:#000;padding:8px 16px;border-radius:6px;font-size:.8em;display:none;z-index:99}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot.on{background:var(--green)}.dot.off{background:var(--err)}
+.login{max-width:300px;margin:100px auto;text-align:center}
+.login h2{color:var(--neon);margin-bottom:16px}
+.login input{margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="/">← Dashboard</a>
+<h1>⚙️ Admin Panel</h1>
+<div class="sub">管理节点、Token、Agent 安装</div>
+
+<div id="loginView" class="login" style="display:none">
+<h2>🔐 登录</h2>
+<input type="password" id="tokenInput" placeholder="输入 Auth Token">
+<button class="btn" onclick="login()">登录</button>
+</div>
+
+<div id="mainView" style="display:none">
+
+<div class="section">
+<h2>📡 节点管理</h2>
+<div id="nodeList"></div>
+</div>
+
+<div class="section">
+<h2>🔑 Auth Token</h2>
+<div class="token-box">
+<input type="text" id="tokenShow" readonly>
+<button class="btn" onclick="copyToken()">复制</button>
+</div>
+</div>
+
+<div class="section">
+<h2>📦 Agent 安装命令</h2>
+<p style="font-size:.75em;color:var(--dim);margin-bottom:8px">在目标机器上执行以下命令即可注册节点：</p>
+<div class="copy-box" id="installCmd" onclick="copyInstall()"></div>
+</div>
+
+</div>
+<div class="toast" id="toast">已复制</div>
+</div><script>
+let TOKEN='';
+const $=s=>document.querySelector(s);
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2000)}
+
+function login(){
+  TOKEN=$('#tokenInput').value.trim();
+  if(!TOKEN)return;
+  localStorage.setItem('oc-token',TOKEN);
+  init();
+}
+
+async function init(){
+  TOKEN=TOKEN||localStorage.getItem('oc-token')||'';
+  if(!TOKEN){$('#loginView').style.display='block';$('#mainView').style.display='none';return}
+  try{
+    const r=await fetch('/api/admin/info',{headers:{'Authorization':'Bearer '+TOKEN}});
+    if(r.status===401){$('#loginView').style.display='block';$('#mainView').style.display='none';return}
+    const d=await r.json();
+    $('#loginView').style.display='none';$('#mainView').style.display='block';
+    $('#tokenShow').value=d.token;
+    const url=location.origin;
+    $('#installCmd').textContent='curl -sL '+url+'/agent.sh -o agent.sh && chmod +x agent.sh && bash agent.sh -s '+url+' -t '+d.token+' -n "MyNode" -r worker';
+    renderNodes(d.nodes);
+  }catch(e){$('#loginView').style.display='block'}
+}
+
+function renderNodes(nodes){
+  const now=Date.now()/1000;
+  $('#nodeList').innerHTML=nodes.length?nodes.map(n=>{
+    const on=now-n.last_seen<120;
+    return '<div class="row"><div><span class="dot '+(on?'on':'off')+'"></span><span class="name">'+n.name+'</span> <span class="host">'+n.host+' · '+n.os+'</span></div><div class="actions"><button class="btn" onclick="renameNode(\''+n.id+'\',\''+n.name+'\')">改名</button><button class="btn danger" onclick="deleteNode(\''+n.id+'\',\''+n.name+'\')">删除</button></div></div>';
+  }).join(''):'<div style="color:var(--dim);font-size:.8em">暂无节点，安装 Agent 后自动出现</div>';
+}
+
+async function renameNode(id,old){
+  const name=prompt('新名称:',old);
+  if(!name||name===old)return;
+  await fetch('/api/node/rename',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({id,name})});
+  toast('已改名: '+name);init();
+}
+
+async function deleteNode(id,name){
+  if(!confirm('确定删除 '+name+'?'))return;
+  await fetch('/api/node/'+id,{method:'DELETE',headers:{'Authorization':'Bearer '+TOKEN}});
+  toast('已删除: '+name);init();
+}
+
+function copyToken(){navigator.clipboard.writeText($('#tokenShow').value);toast('Token 已复制')}
+function copyInstall(){navigator.clipboard.writeText($('#installCmd').textContent);toast('安装命令已复制')}
+
+init();
+</script>
+</body></html>

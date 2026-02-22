@@ -95,8 +95,15 @@ const server = http.createServer((req, res) => {
     return true;
   };
 
-  // Static files
+  // Static files + agent.sh download
   if (method === 'GET' && !url.pathname.startsWith('/api/')) {
+    if (url.pathname === '/agent.sh') {
+      const agentPath = path.join(__dirname, '..', 'agent', 'agent.sh');
+      if (fs.existsSync(agentPath)) {
+        res.writeHead(200, {'Content-Type':'text/plain'});
+        return fs.createReadStream(agentPath).pipe(res);
+      }
+    }
     let fp = path.join(PUBLIC, url.pathname === '/' ? 'index.html' : url.pathname);
     if (!fs.existsSync(fp)) fp = path.join(PUBLIC, 'index.html');
     const ext = path.extname(fp);
@@ -152,6 +159,13 @@ const server = http.createServer((req, res) => {
         renameNode.run(b.name, b.id);
         broadcast({ type:'rename', id: b.id, name: b.name });
         return json(200, { ok: true });
+      }
+
+      // GET /api/admin/info
+      if (url.pathname === '/api/admin/info' && method === 'GET') {
+        if (!auth()) return;
+        const nodes = getNodes.all();
+        return json(200, { token: AUTH_TOKEN, nodes });
       }
 
       // DELETE /api/node/:id
