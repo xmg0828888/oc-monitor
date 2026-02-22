@@ -21,7 +21,7 @@ Real-time monitoring dashboard for [OpenClaw](https://github.com/openclaw/opencl
 ### 1. Deploy Server (Docker)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xmg0828888/oc-monitor/main/install.sh | bash
+curl -fsSL https://cdn.jsdelivr.net/gh/xmg0828888/oc-monitor@main/install.sh | bash
 ```
 
 This will:
@@ -35,7 +35,7 @@ This will:
 After server is running, install the agent on each OpenClaw node:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xmg0828888/oc-monitor/main/install-agent.sh | bash -s -- \
+curl -fsSL https://cdn.jsdelivr.net/gh/xmg0828888/oc-monitor@main/install-agent.sh | bash -s -- \
   -s http://YOUR_SERVER_IP:3800 \
   -t YOUR_AUTH_TOKEN \
   -n "Node Name"
