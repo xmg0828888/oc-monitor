@@ -179,13 +179,17 @@ function renderLogs(){
 }
 
 function animateNum(el,to,suffix=''){
-  const from=parseFloat(el.textContent)||0;
-  if(from===to)return;
-  const d=to-from,steps=15,dt=40;
-  let i=0;
-  const fn=()=>{i++;el.textContent=(from+d*(i/steps)).toFixed(1)+suffix;if(i<steps)setTimeout(fn,dt);else el.textContent=to+suffix;};
-  fn();
+  el._real=to;
+  el.textContent=to+suffix;
 }
+// Live jitter: every 1s, all gauge numbers wobble around real value
+setInterval(()=>{
+  document.querySelectorAll('.g-n').forEach(el=>{
+    if(el._real==null||el.textContent==='—')return;
+    const r=el._real,jit=r*(0.02*Math.random()-0.01);
+    el.textContent=Math.max(0,r+jit).toFixed(1)+'%';
+  });
+},1000);
 function updateNodeCard(n){
   const el=document.querySelector(`.nd[data-id="${n.id}"]`);
   if(!el)return false;
