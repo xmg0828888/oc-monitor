@@ -62,6 +62,8 @@ const upsertNode = db.prepare(`INSERT INTO nodes(id,name,host,os,oc_version,role
 const insertReq = db.prepare(`INSERT INTO requests(node_id,upstream,model,status,input_tokens,output_tokens,ttft_ms,total_ms,success,ts) VALUES(?,?,?,?,?,?,?,?,?,?)`);
 const getNodes = db.prepare("SELECT * FROM nodes ORDER BY role='master' DESC, name");
 const getReqs = db.prepare("SELECT r.*,n.name as node_name FROM requests r LEFT JOIN nodes n ON r.node_id=n.id ORDER BY r.ts DESC LIMIT ?");
+const getReqsPage = db.prepare("SELECT r.*,n.name as node_name FROM requests r LEFT JOIN nodes n ON r.node_id=n.id ORDER BY r.ts DESC LIMIT ? OFFSET ?");
+const countReqs = db.prepare("SELECT count(*) as total FROM requests");
 const getStats = db.prepare(`SELECT count(*) as total, sum(input_tokens) as input_tok, sum(output_tokens) as output_tok,
   sum(success) as ok, avg(ttft_ms) as avg_ttft, avg(total_ms) as avg_total
   FROM requests WHERE ts > ?`);
@@ -125,6 +127,16 @@ const server = http.createServer((req, res) => {
         const stats = getStats.get(today);
         const reqs = getReqs.all(500);
         return json(200, { nodes, stats, requests: reqs, token: undefined });
+      }
+
+      // GET /api/requests?page=1&size=50
+      if (url.pathname === '/api/requests' && method === 'GET') {
+        const page = parseInt(url.searchParams.get('page') || '1');
+        const size = Math.min(parseInt(url.searchParams.get('size') || '50'), 200);
+        const offset = (page - 1) * size;
+        const rows = getReqsPage.all(size, offset);
+        const {total} = countReqs.get();
+        return json(200, { requests: rows, total, page, pages: Math.ceil(total / size) });
       }
 
       // POST /api/heartbeat - agent reports

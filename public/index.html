@@ -57,7 +57,22 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 .lt-h{font-size:.9em;font-weight:600;margin-bottom:10px;color:var(--purple)}
 .lf{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .lf select{background:var(--card2);border:1px solid var(--border);color:var(--txt);padding:4px 10px;border-radius:6px;font-size:.78em;font-family:inherit}
-@media(max-width:768px){.stats{grid-template-columns:repeat(3,1fr)}.nodes{grid-template-columns:1fr}}
+.pager{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:14px;font-size:.78em}
+.pager button{background:var(--card2);border:1px solid var(--border);color:var(--txt);padding:4px 12px;border-radius:6px;cursor:pointer;font-family:inherit}
+.pager button:disabled{opacity:.3;cursor:default}
+.pager button.pg-on{border-color:var(--neon);color:var(--neon)}
+.pager span{color:var(--dim)}
+.provs{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.pcard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.pcard-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.pcard-nm{font-size:1.05em;font-weight:600;color:var(--neon)}
+.pcard-cnt{font-size:.7em;color:var(--dim)}
+.pcard-row{display:flex;justify-content:space-between;padding:4px 0;font-size:.78em;border-bottom:1px solid rgba(26,39,64,.3)}
+.pcard-row:last-child{border-bottom:none}
+.pcard-node{color:var(--dim)}
+.pcard-model{color:var(--purple);font-size:.72em}
+.pcard-ms{color:var(--dim);font-size:.75em}
+@media(max-width:768px){.stats{grid-template-columns:repeat(3,1fr)}.nodes{grid-template-columns:1fr}.provs{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -73,17 +88,17 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 </div>
 
 <div class="tp on" id="t-nodes"><div class="nodes" id="nodeGrid"></div></div>
-<div class="tp" id="t-matrix"><div class="mx"><div class="mx-h">供应商 × 节点 矩阵</div><table id="matrixTable"></table></div></div>
+<div class="tp" id="t-matrix"><div class="provs" id="provGrid"></div></div>
 <div class="tp" id="t-logs"><div class="lt"><div class="lt-h">请求日志</div>
 <div class="lf"><select id="fNode" onchange="renderLogs()"><option value="">全部节点</option></select><select id="fUp" onchange="renderLogs()"><option value="">全部供应商</option></select><select id="fRes" onchange="renderLogs()"><option value="">全部结果</option><option value="1">✓ 成功</option><option value="0">✗ 失败</option></select></div>
-<table id="logTable"></table></div></div>
+<table id="logTable"></table><div class="pager" id="pager"></div></div></div>
 
 </div>
 <script>
 let DATA={nodes:[],stats:{},requests:[]};
 const $=s=>document.querySelector(s);
 
-function sw(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tp').forEach(e=>e.classList.remove('on'));document.querySelector(`.tab[onclick*="${t}"]`).classList.add('on');document.getElementById('t-'+t).classList.add('on');if(t==='logs')renderLogs()}
+function sw(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tp').forEach(e=>e.classList.remove('on'));document.querySelector(`.tab[onclick*="${t}"]`).classList.add('on');document.getElementById('t-'+t).classList.add('on');if(t==='logs')loadLogs(logPage)}
 
 function fmtTok(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n}
 function fmtUp(s){if(!s)return'0s';return s>=1000?(s/1000).toFixed(1)+'s':s+'ms'}
@@ -136,31 +151,40 @@ ${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<d
 
 
 function renderMatrix(){
-  const ns=DATA.nodes,allProvs=new Map();
+  const ns=DATA.nodes,provMap=new Map();
   ns.forEach(n=>JSON.parse(n.providers||'[]').forEach(p=>{
-    const k=p.name+' ('+p.model+')';if(!allProvs.has(k))allProvs.set(k,new Set());
-    allProvs.get(k).add(n.name);
+    if(!provMap.has(p.name))provMap.set(p.name,{name:p.name,nodes:[]});
+    provMap.get(p.name).nodes.push({node:n.name,model:p.model,status:p.status,ms:p.ms,err:p.err,def:p.default});
   }));
-  let h='<thead><tr><th>Provider</th>'+ns.map(n=>'<th>'+n.name+'</th>').join('')+'</tr></thead><tbody>';
-  for(const[prov,set]of allProvs){
-    h+='<tr><td>'+prov+'</td>';
-  ns.forEach(n=>{const ps=JSON.parse(n.providers||'[]');const f=ps.find(x=>x.name===prov.split(' (')[0]);
-    h+=f?(f.status==='ok'?`<td class="ok">✓ ${f.ms}ms</td>`:`<td class="er">✗ ${f.err||'离线'}</td>`):'<td style="color:var(--dim)">—</td>';});
-    h+='</tr>';
-  }
-  $('#matrixTable').innerHTML=h+'</tbody>';
+  $('#provGrid').innerHTML=[...provMap.values()].sort((a,b)=>b.nodes.length-a.nodes.length).map(p=>{
+    const ok=p.nodes.filter(n=>n.status==='ok').length;
+    return `<div class="pcard">
+<div class="pcard-h"><span class="pcard-nm">${p.name}</span><span class="pcard-cnt">${ok}/${p.nodes.length} 在线</span></div>
+${p.nodes.sort((a,b)=>b.def-a.def).map(n=>`<div class="pcard-row"><div><span${n.def?' style="color:var(--warn)"':''}>${n.node}</span> <span class="pcard-model">${n.model.split(' | ').join(', ')}</span></div><div>${n.status==='ok'?'<span class="ok">✓</span> <span class="pcard-ms">'+n.ms+'ms</span>':'<span class="er">✗</span> <span class="pcard-ms">'+(n.err||'离线')+'</span>'}</div></div>`).join('')}
+</div>`;
+  }).join('');
+}
+
+let logPage=1,logPages=1,logTotal=0;
+
+async function loadLogs(page){
+  page=page||1;
+  try{
+    const r=await fetch('/api/requests?page='+page+'&size=50');
+    const d=await r.json();
+    DATA.requests=d.requests||[];logPage=d.page;logPages=d.pages;logTotal=d.total;
+  }catch(e){console.error(e)}
+  renderLogs();
 }
 
 function renderLogs(){
   const reqs=DATA.requests||[];
-  // Populate filters from nodes (not requests)
   const nodes=(DATA.nodes||[]).map(n=>n.name).sort();
   const ups=[...new Set(reqs.map(r=>r.upstream))].sort();
   const fN=$('#fNode'),fU=$('#fUp');
   const nv=fN.value,uv=fU.value;
   fN.innerHTML='<option value="">全部节点</option>'+nodes.map(n=>`<option${n===nv?' selected':''}>${n}</option>`).join('');
   fU.innerHTML='<option value="">全部供应商</option>'+ups.map(u=>`<option${u===uv?' selected':''}>${u}</option>`).join('');
-  // Filter
   const fR=$('#fRes').value;
   const filtered=reqs.filter(r=>{
     if(nv&&(r.node_name||r.node_id)!==nv)return false;
@@ -177,6 +201,15 @@ function renderLogs(){
     h+='<td style="color:var(--warn)">'+r.ttft_ms+'ms</td><td>'+fmtUp(r.total_ms)+'</td></tr>';
   });
   $('#logTable').innerHTML=h+'</tbody>';
+  // pager
+  let pg='<button onclick="loadLogs(1)"'+(logPage<=1?' disabled':'')+'>«</button>';
+  pg+='<button onclick="loadLogs('+(logPage-1)+')"'+(logPage<=1?' disabled':'')+'>‹</button>';
+  const start=Math.max(1,logPage-2),end=Math.min(logPages,logPage+2);
+  for(let i=start;i<=end;i++)pg+='<button class="'+(i===logPage?'pg-on':'')+'" onclick="loadLogs('+i+')">'+i+'</button>';
+  pg+='<button onclick="loadLogs('+(logPage+1)+')"'+(logPage>=logPages?' disabled':'')+'>›</button>';
+  pg+='<button onclick="loadLogs('+logPages+')"'+(logPage>=logPages?' disabled':'')+'>»</button>';
+  pg+='<span>共 '+logTotal+' 条</span>';
+  $('#pager').innerHTML=pg;
 }
 
 function animateNum(el,to,suffix=''){
