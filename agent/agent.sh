@@ -48,10 +48,48 @@ if cfg and os.path.exists(cfg):
         default_name = dp.split('/')[0] if '/' in dp else dp
         for n,p in m.get('providers',{}).items():
             if not isinstance(p,dict): continue
+            base = p.get('baseUrl','')
+            key = p.get('apiKey','')
+            api_type = p.get('api','')
             for mod in p.get('models',[]):
-                providers.append({'name':n,'model':mod.get('id',''),'api':p.get('api',''),'default':n==default_name})
+                providers.append({'name':n,'model':mod.get('id',''),'api':api_type,'default':n==default_name,
+                                  '_base':base,'_key':key})
         providers.sort(key=lambda x: (not x.get('default',False), x['name']))
     except: pass
+
+# Health check each provider
+import urllib.request,urllib.error
+def check_provider(p):
+    base,key,api = p.get('_base',''),p.get('_key',''),p.get('api','')
+    if not base or not key: return {'ok':False,'ms':0,'err':'no config'}
+    try:
+        t0 = time.time()
+        if 'anthropic' in api:
+            url = base.rstrip('/')+'/v1/messages'
+            data = json.dumps({"model":p['model'],"max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode()
+            req = urllib.request.Request(url,data,{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'})
+        else:
+            url = base.rstrip('/')+'/chat/completions'
+            data = json.dumps({"model":p['model'],"max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode()
+            req = urllib.request.Request(url,data,{'Content-Type':'application/json','Authorization':'Bearer '+key})
+        resp = urllib.request.urlopen(req,timeout=10)
+        ms = int((time.time()-t0)*1000)
+        return {'ok':True,'ms':ms,'err':''}
+    except urllib.error.HTTPError as e:
+        ms = int((time.time()-t0)*1000)
+        code = e.code
+        if code == 429: return {'ok':False,'ms':ms,'err':'限额'}
+        if code in (402,): return {'ok':False,'ms':ms,'err':'余额不足'}
+        return {'ok':True,'ms':ms,'err':''}  # 400/401/403/422 means API is reachable
+    except Exception as e:
+        return {'ok':False,'ms':0,'err':'timeout'}
+
+for p in providers:
+    r = check_provider(p)
+    p['status'] = 'ok' if r['ok'] else 'err'
+    p['ms'] = r['ms']
+    p['err'] = r['err']
+    del p['_base'], p['_key']
 
 # CPU
 if mac:
