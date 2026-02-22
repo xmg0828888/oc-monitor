@@ -300,7 +300,7 @@ function connectWS(){
       if(!updateNodeCard(DATA.nodes[i>=0?i:DATA.nodes.length-1]))renderNodes();
       renderStats();
     }
-    if(d.type==='request'){DATA.requests.unshift(d.request);if(DATA.requests.length>100)DATA.requests.pop();render();}
+    if(d.type==='request'){const rq=d.request;if(!rq.node_name){const nd=DATA.nodes.find(n=>n.id===rq.node_id);if(nd)rq.node_name=nd.name;}DATA.requests.unshift(rq);if(DATA.requests.length>100)DATA.requests.pop();render();}
     if(d.type==='rename'){var n=DATA.nodes.find(function(x){return x.id===d.id});if(n)n.name=d.name;render();}
     if(d.type==='delete'){DATA.nodes=DATA.nodes.filter(function(n){return n.id!==d.id});render();}
   };
