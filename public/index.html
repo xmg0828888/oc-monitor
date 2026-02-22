@@ -74,7 +74,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 <div class="tp on" id="t-nodes"><div class="nodes" id="nodeGrid"></div></div>
 <div class="tp" id="t-matrix"><div class="mx"><div class="mx-h">供应商 × 节点 矩阵</div><table id="matrixTable"></table></div></div>
 <div class="tp" id="t-logs"><div class="lt"><div class="lt-h">请求日志</div>
-<div class="lf"><select id="fNode"><option value="">全部节点</option></select><select id="fUp"><option value="">全部供应商</option></select><select id="fRes"><option value="">全部结果</option><option value="1">✓ 成功</option><option value="0">✗ 失败</option></select></div>
+<div class="lf"><select id="fNode" onchange="renderLogs()"><option value="">全部节点</option></select><select id="fUp" onchange="renderLogs()"><option value="">全部供应商</option></select><select id="fRes" onchange="renderLogs()"><option value="">全部结果</option><option value="1">✓ 成功</option><option value="0">✗ 失败</option></select></div>
 <table id="logTable"></table></div></div>
 
 </div>
@@ -152,8 +152,23 @@ function renderMatrix(){
 
 function renderLogs(){
   const reqs=DATA.requests||[];
+  // Populate filters
+  const nodes=[...new Set(reqs.map(r=>r.node_name||r.node_id))].sort();
+  const ups=[...new Set(reqs.map(r=>r.upstream))].sort();
+  const fN=$('#fNode'),fU=$('#fUp');
+  const nv=fN.value,uv=fU.value;
+  fN.innerHTML='<option value="">全部节点</option>'+nodes.map(n=>`<option${n===nv?' selected':''}>${n}</option>`).join('');
+  fU.innerHTML='<option value="">全部供应商</option>'+ups.map(u=>`<option${u===uv?' selected':''}>${u}</option>`).join('');
+  // Filter
+  const fR=$('#fRes').value;
+  const filtered=reqs.filter(r=>{
+    if(nv&&(r.node_name||r.node_id)!==nv)return false;
+    if(uv&&r.upstream!==uv)return false;
+    if(fR!==''&&String(r.success?1:0)!==fR)return false;
+    return true;
+  });
   let h='<thead><tr><th>时间</th><th>节点</th><th>供应商</th><th>模型</th><th>结果</th><th>状态</th><th>输入</th><th>输出</th><th>首字</th><th>总耗时</th></tr></thead><tbody>';
-  reqs.forEach(r=>{
+  filtered.forEach(r=>{
     const t=new Date(r.ts*1000).toLocaleTimeString('zh-CN');
     h+='<tr><td>'+t+'</td><td>'+(r.node_name||r.node_id)+'</td><td>'+r.upstream+'</td><td>'+r.model+'</td>';
     h+='<td class="'+(r.success?'ok':'er')+'">'+(r.success?'✓':'✗')+'</td><td>'+r.status+'</td>';
