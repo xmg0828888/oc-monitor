@@ -82,7 +82,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(26,39,64,.5)}
 let DATA={nodes:[],stats:{},requests:[]};
 const $=s=>document.querySelector(s);
 
-function sw(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tp').forEach(e=>e.classList.remove('on'));document.querySelector(`.tab[onclick*="${t}"]`).classList.add('on');document.getElementById('t-'+t).classList.add('on')}
+function sw(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tp').forEach(e=>e.classList.remove('on'));document.querySelector(`.tab[onclick*="${t}"]`).classList.add('on');document.getElementById('t-'+t).classList.add('on');if(t==='logs')renderLogs()}
 
 function fmtTok(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n}
 function fmtUp(s){if(!s)return'0s';return s>=1000?(s/1000).toFixed(1)+'s':s+'ms'}
