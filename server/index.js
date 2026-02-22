@@ -65,6 +65,7 @@ const upsertNode = db.prepare(`INSERT INTO nodes(id,name,host,os,oc_version,role
   last_seen=excluded.last_seen`);
 const insertReq = db.prepare(`INSERT INTO requests(node_id,upstream,model,status,input_tokens,output_tokens,cache_read,cache_write,ttft_ms,total_ms,success,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`);
 const getNodes = db.prepare("SELECT * FROM nodes ORDER BY role='master' DESC, name");
+const getNodeName = db.prepare("SELECT name FROM nodes WHERE id=?");
 const getReqs = db.prepare("SELECT r.*,n.name as node_name FROM requests r LEFT JOIN nodes n ON r.node_id=n.id ORDER BY r.ts DESC LIMIT ?");
 const getReqsPage = db.prepare("SELECT r.*,n.name as node_name FROM requests r LEFT JOIN nodes n ON r.node_id=n.id ORDER BY r.ts DESC LIMIT ? OFFSET ?");
 const countReqs = db.prepare("SELECT count(*) as total FROM requests");
@@ -169,7 +170,10 @@ const server = http.createServer((req, res) => {
             r.ttft_ms||0,r.total_ms||0,
             r.success!==false?1:0, r.ts||now);
         }
-        if (items.length <= 5) items.forEach(r => broadcast({ type:'request', request: r }));
+        if (items.length <= 5) items.forEach(r => {
+          const nn = getNodeName.get(r.node_id);
+          broadcast({ type:'request', request: {...r, node_name: nn ? nn.name : r.node_id} });
+        });
         return json(200, { ok: true, count: items.length });
       }
 
