@@ -93,14 +93,18 @@ function gaugeColor(v){return v>85?'fr':v>60?'fw':v>40?'fb':'fg'}
 function renderStats(){
   const s=DATA.stats||{},ns=DATA.nodes||[];
   const online=ns.filter(n=>Date.now()/1000-n.last_seen<120).length;
-  const rate=s.total?((s.ok||0)/s.total*100).toFixed(1):0;
+  const todayTok=ns.reduce((a,n)=>a+(n.tok_today||0),0);
+  const weekTok=ns.reduce((a,n)=>a+(n.tok_week||0),0);
+  const monthTok=ns.reduce((a,n)=>a+(n.tok_month||0),0);
+  const totalSess=ns.reduce((a,n)=>a+(n.sessions||0),0);
+  const totalProvs=ns.reduce((a,n)=>a+JSON.parse(n.providers||'[]').length,0);
   $('#stats').innerHTML=[
     ['s1',online+'/'+ns.length,'NODES ONLINE'],
-    ['s2',fmtTok(s.total||0),'TODAY REQUESTS'],
-    ['s3',fmtTok(s.input_tok||0),'INPUT TOKENS'],
-    ['s4',rate+'%','SUCCESS RATE'],
-    ['s5',fmtUp(Math.round(s.avg_ttft||0)),'AVG TTFT'],
-    ['s6',fmtUp(Math.round(s.avg_total||0)),'AVG LATENCY']
+    ['s2',fmtTok(todayTok),'TODAY TOKENS'],
+    ['s3',fmtTok(weekTok),'WEEK TOKENS'],
+    ['s4',fmtTok(monthTok),'MONTH TOKENS'],
+    ['s5',totalSess,'SESSIONS'],
+    ['s6',totalProvs,'PROVIDERS']
   ].map(([c,n,l])=>`<div class="st ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
 }
 
