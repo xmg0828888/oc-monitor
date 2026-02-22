@@ -117,14 +117,14 @@ function renderNodes(){
       const h=on?Math.random()*20+4:0;
       return `<i style="height:${h}px;background:var(--${on?'neon':'err'});opacity:${on?.3+Math.random()*.5:.2}"></i>`;
     }).join('');
-    return `<div class="nd${on?'':' offline'}">
+    return `<div class="nd${on?'':' offline'}" data-id="${n.id}">
 <div class="nd-h"><div><span class="dot ${on?'on':'off'}"></span><span class="nd-nm" title="点击改名">${n.name}</span></div><span style="font-size:.7em;color:var(--${on?'dim':'err'})">${n.host}</span></div>
 <div class="tg"><span class="${n.role==='master'?'ms':'wk'}">${n.role}</span><span>OC ${n.oc_version}</span><span>${n.os}</span></div>
 <div class="hb">${hbBars}</div>
 <div class="sec">供应商</div>
 ${provs.sort((a,b)=>b.default-a.default||(a.name>b.name?1:-1)).map(p=>`<div class="pv"><div class="pv-l">${p.default?'<span class="dot on" style="width:6px;height:6px"></span>':''}<span${p.default?' class="pv-default"':''}>${p.name}</span> <span class="pm">${p.model}</span></div><div>${p.status==='ok'?'<span class="ok">✓</span> <span class="pm">'+p.ms+'ms</span>':'<span class="er">✗</span> <span class="pm">'+(p.err||'离线')+'</span>'}</div></div>`).join('')}
 <div class="gs">
-${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
+${[['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].map(([l,v])=>`<div class="g" data-g="${l}"><span class="g-l">${l}</span><div class="g-t"><div class="g-f ${gaugeColor(v)}" style="width:${v}%"></div></div><span class="g-n">${on?v+'%':'—'}</span></div>`).join('')}
 </div>
 <div class="tks"><div class="tk"><div class="tk-l">今日</div><div class="tk-v">${fmtTok(n.tok_today)}</div></div><div class="tk"><div class="tk-l">本周</div><div class="tk-v">${fmtTok(n.tok_week)}</div></div><div class="tk"><div class="tk-l">本月</div><div class="tk-v">${fmtTok(n.tok_month)}</div></div></div>
 <div class="nd-f"><span>⏱ ${fmtAge(now-n.uptime)}</span><span>📡 ${n.sessions} 会话</span><span>⚡ 网关 ${n.gw_ok?'✓':'✗'}</span><span>🐾 守护 ${n.daemon_ok?'✓':'✗'}</span></div>
@@ -178,6 +178,29 @@ function renderLogs(){
   $('#logTable').innerHTML=h+'</tbody>';
 }
 
+function updateNodeCard(n){
+  const el=document.querySelector(`.nd[data-id="${n.id}"]`);
+  if(!el)return false;
+  const on=Date.now()/1000-n.last_seen<120;
+  el.className='nd'+(on?'':' offline');
+  // gauges
+  [['cpu',n.cpu],['mem',n.mem],['disk',n.disk],['swap',n.swap]].forEach(([k,v])=>{
+    const g=el.querySelector(`[data-g="${k}"]`);
+    if(g){g.querySelector('.g-f').style.width=v+'%';g.querySelector('.g-f').className='g-f '+gaugeColor(v);g.querySelector('.g-n').textContent=on?v+'%':'—';}
+  });
+  // tokens
+  const tv=el.querySelectorAll('.tk-v');
+  if(tv[0])tv[0].textContent=fmtTok(n.tok_today);
+  if(tv[1])tv[1].textContent=fmtTok(n.tok_week);
+  if(tv[2])tv[2].textContent=fmtTok(n.tok_month);
+  // footer
+  const fs=el.querySelectorAll('.nd-f span');
+  if(fs[0])fs[0].textContent='⏱ '+fmtAge(Date.now()/1000-n.uptime);
+  if(fs[1])fs[1].textContent='📡 '+n.sessions+' 会话';
+  if(fs[2])fs[2].textContent='⚡ 网关 '+(n.gw_ok?'✓':'✗');
+  if(fs[3])fs[3].textContent='🐾 守护 '+(n.daemon_ok?'✓':'✗');
+  return true;
+}
 function render(){renderStats();renderNodes();renderMatrix();renderLogs();
   $('#subtitle').textContent=DATA.nodes.length+' 个节点 · 更新于 '+new Date().toLocaleString('zh-CN');
 }
@@ -194,7 +217,8 @@ function connectWS(){
     if(d.type==='heartbeat'){
       const i=DATA.nodes.findIndex(function(n){return n.id===d.node.id});
       if(i>=0)Object.assign(DATA.nodes[i],d.node);else DATA.nodes.push(d.node);
-      render();
+      if(!updateNodeCard(DATA.nodes[i>=0?i:DATA.nodes.length-1]))renderNodes();
+      renderStats();
     }
     if(d.type==='request'){DATA.requests.unshift(d.request);if(DATA.requests.length>100)DATA.requests.pop();render();}
     if(d.type==='rename'){var n=DATA.nodes.find(function(x){return x.id===d.id});if(n)n.name=d.name;render();}
