@@ -143,18 +143,11 @@ else:
 gw = bool(run('pgrep -f "openclaw"'))
 daemon = gw  # if openclaw is running, both are likely up
 
-# Sessions - search for session files
+# Sessions - count jsonl files in agents/*/sessions/
 sessions = 0
 oc_dir = os.path.expanduser('~/.openclaw')
-for sf in [os.path.join(oc_dir,'sessions.json'), os.path.join(oc_dir,'data','sessions.json')]:
-    if os.path.exists(sf):
-        try: sessions = len(json.load(open(sf))); break
-        except: pass
-# Fallback: count session dirs
-if sessions == 0:
-    sess_dir = os.path.join(oc_dir,'sessions')
-    if os.path.isdir(sess_dir):
-        sessions = len([d for d in os.listdir(sess_dir) if os.path.isdir(os.path.join(sess_dir,d))])
+for sd in glob.glob(os.path.join(oc_dir,'agents','*','sessions')):
+    sessions += len(glob.glob(os.path.join(sd,'*.jsonl')))
 
 # Token usage from session jsonl files
 tok_today=tok_week=tok_month=0
