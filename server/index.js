@@ -123,7 +123,7 @@ const server = http.createServer((req, res) => {
         const today = now - (now % 86400);
         const nodes = getNodes.all();
         const stats = getStats.get(today);
-        const reqs = getReqs.all(50);
+        const reqs = getReqs.all(500);
         return json(200, { nodes, stats, requests: reqs, token: undefined });
       }
 
