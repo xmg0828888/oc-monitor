@@ -140,16 +140,19 @@ const server = http.createServer((req, res) => {
         return json(200, { ok: true });
       }
 
-      // POST /api/request - agent reports API call
+      // POST /api/request - agent reports API call (single or batch)
       if (url.pathname === '/api/request' && method === 'POST') {
         if (!auth()) return;
         const b = await readBody();
         const now = Math.floor(Date.now()/1000);
-        insertReq.run(b.node_id,b.upstream,b.model,b.status||200,
-          b.input_tokens||0,b.output_tokens||0,b.ttft_ms||0,b.total_ms||0,
-          b.success!==false?1:0, b.ts||now);
-        broadcast({ type:'request', request: b });
-        return json(200, { ok: true });
+        const items = Array.isArray(b) ? b : [b];
+        for (const r of items) {
+          insertReq.run(r.node_id,r.upstream,r.model,r.status||200,
+            r.input_tokens||0,r.output_tokens||0,r.ttft_ms||0,r.total_ms||0,
+            r.success!==false?1:0, r.ts||now);
+        }
+        if (items.length <= 5) items.forEach(r => broadcast({ type:'request', request: r }));
+        return json(200, { ok: true, count: items.length });
       }
 
       // POST /api/node/rename
