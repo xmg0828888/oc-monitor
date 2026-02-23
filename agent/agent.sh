@@ -65,11 +65,14 @@ if cfg and os.path.exists(cfg):
             if prov_count: dp = prov_count.most_common(1)[0][0]
         default_name = dp.split('/')[0] if '/' in dp else dp
         for n,p in m.get('providers',{}).items():
+            if isinstance(p,str): p = {'models':[p]}
             if not isinstance(p,dict): continue
             base = p.get('baseUrl','')
             key = p.get('apiKey','')
             api_type = p.get('api','')
-            models = [mod.get('id','') for mod in p.get('models',[])]
+            raw_models = p.get('models', p.get('model', []))
+            if isinstance(raw_models, str): raw_models = [raw_models]
+            models = [mod.get('id','') if isinstance(mod,dict) else str(mod) for mod in raw_models]
             providers.append({'name':n,'model':' | '.join(models),'_test_model':models[0] if models else '',
                               'api':api_type,'default':n==default_name,'_base':base,'_key':key})
         providers.sort(key=lambda x: (not x.get('default',False), x['name']))
@@ -305,7 +308,6 @@ for sd in glob.glob(os.path.join(oc_dir,'agents','*','sessions')):
                         reqs.append({'node_id':nid,'upstream':m.get('provider',''),
                             'model':m.get('model',''),'status':200,
                             'input_tokens':u.get('input',0),'output_tokens':u.get('output',0),
-                            'cache_read':u.get('cacheRead',0),'cache_write':u.get('cacheWrite',0),
                             'ttft_ms':0,'total_ms':0,'success':True,
                             'ts':ts_val})
                     except: pass
